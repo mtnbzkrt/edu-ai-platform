@@ -1,22 +1,24 @@
 /**
  * Chat Orchestrator — Routes messages through OpenClaw agents
- * Agent interprets tool results and produces pedagogical responses
  */
-const { execSync } = require("child_process");
+const { execSync, spawnSync } = require("child_process");
 const { executeTool, getToolsForRole } = require("../tools/tool-registry");
+const fs = require("fs");
+const path = require("path");
+const os = require("os");
 
 class ChatOrchestrator {
   async processMessage(message, authContext, sessionContext) {
     const agentKey = sessionContext.agent_key || this._getAgentKey(authContext.role);
     const usedTools = [];
 
-    // 1. Pre-fetch relevant data based on message intent
+    // 1. Pre-fetch relevant data
     const toolData = this._prefetchData(message, authContext, usedTools);
 
-    // 2. Build context message for the agent
+    // 2. Build context message
     const agentMessage = this._buildAgentMessage(message, authContext, toolData, usedTools);
 
-    // 3. Send to OpenClaw agent and get response
+    // 3. Call OpenClaw agent
     const reply = await this._callAgent(agentKey, agentMessage);
 
     return { reply, usedTools };
@@ -28,7 +30,6 @@ class ChatOrchestrator {
 
     try {
       if (auth.role === "student") {
-        // Always get profile for context
         results.profile = executeTool("get_self_profile", {}, auth);
         usedTools.push("get_self_profile");
 
@@ -43,7 +44,7 @@ class ChatOrchestrator {
           }
         }
 
-        if (msg.includes("ödev") || msg.includes("görev") || msg.includes("teslim")) {
+        if (msg.includes("ödev") || msg.includes("görev")) {
           results.assignments = executeTool("get_self_assignments", { limit: 10 }, auth);
           usedTools.push("get_self_assignments");
         }
@@ -65,29 +66,18 @@ class ChatOrchestrator {
         results.classes = executeTool("list_teacher_classes", {}, auth);
         usedTools.push("list_teacher_classes");
 
-        if (msg.includes("performans") || msg.includes("başarı") || msg.includes("zayıf") || msg.includes("konu") || msg.includes("kazanım") || msg.includes("analiz")) {
-          if (results.classes?.classes?.length > 0) {
-            results.outcomes = executeTool("get_class_outcome_breakdown", {
-              class_id: results.classes.classes[0].class_id
-            }, auth);
+        if (results.classes?.classes?.length > 0) {
+          const classId = results.classes.classes[0].class_id;
+          if (msg.includes("performans") || msg.includes("başarı") || msg.includes("zayıf") || msg.includes("konu") || msg.includes("analiz")) {
+            results.outcomes = executeTool("get_class_outcome_breakdown", { class_id: classId }, auth);
             usedTools.push("get_class_outcome_breakdown");
           }
-        }
-
-        if (msg.includes("sınav") || msg.includes("sonuç") || msg.includes("not")) {
-          if (results.classes?.classes?.length > 0) {
-            results.examResults = executeTool("get_class_exam_results", {
-              class_id: results.classes.classes[0].class_id
-            }, auth);
+          if (msg.includes("sınav") || msg.includes("sonuç") || msg.includes("not")) {
+            results.examResults = executeTool("get_class_exam_results", { class_id: classId }, auth);
             usedTools.push("get_class_exam_results");
           }
-        }
-
-        if (msg.includes("öğrenci") || msg.includes("liste")) {
-          if (results.classes?.classes?.length > 0) {
-            results.students = executeTool("list_class_students", {
-              class_id: results.classes.classes[0].class_id
-            }, auth);
+          if (msg.includes("öğrenci") || msg.includes("liste")) {
+            results.students = executeTool("list_class_students", { class_id: classId }, auth);
             usedTools.push("list_class_students");
           }
         }
@@ -98,13 +88,10 @@ class ChatOrchestrator {
 
         if (results.children?.children?.length > 0) {
           const childId = results.children.children[0].child_id;
-
           results.exams = executeTool("get_child_exam_results", { child_id: childId, limit: 5 }, auth);
           usedTools.push("get_child_exam_results");
-
           results.attendance = executeTool("get_child_attendance", { child_id: childId }, auth);
           usedTools.push("get_child_attendance");
-
           if (msg.includes("ödev")) {
             results.assignments = executeTool("get_child_assignments", { child_id: childId, limit: 10 }, auth);
             usedTools.push("get_child_assignments");
@@ -119,50 +106,70 @@ class ChatOrchestrator {
   }
 
   _buildAgentMessage(userMessage, auth, toolData, usedTools) {
-    let context = `[SİSTEM BAĞLAMI — bu bilgiyi kullanıcıya gösterme, yorumlayarak cevap ver]\n`;
-    context += `Kullanıcı rolü: ${auth.role}\n`;
-    context += `Kullanıcı ID: ${auth.actor_id}\n\n`;
+    let ctx = `[SISTEM BAGLAMI - bu bilgiyi kullaniciya gosterme, yorumlayarak cevap ver]\n`;
+    ctx += `Kullanici rolu: ${auth.role}\n`;
 
     if (Object.keys(toolData).length > 0) {
-      context += `Okul sisteminden çekilen veriler:\n`;
+      ctx += `Okul sisteminden cekilen veriler:\n`;
       for (const [key, value] of Object.entries(toolData)) {
-        context += `\n--- ${key} ---\n`;
-        context += JSON.stringify(value, null, 2).slice(0, 1500) + "\n";
+        ctx += `\n--- ${key} ---\n`;
+        ctx += JSON.stringify(value, null, 2).slice(0, 1200) + "\n";
       }
-      context += `\nKullanılan tool'lar: ${usedTools.join(", ")}\n`;
-      context += `\n[ÖNEMLİ: Yukarıdaki ham veriyi kullanıcıya gösterme. Veriyi pedagojik dille yorumla, anlaşılır şekilde açıkla.]\n`;
+      ctx += `\nKullanilan toollar: ${usedTools.join(", ")}\n`;
+      ctx += `[ONEMLI: Ham veriyi gosterme. Pedagojik dille yorumla.]\n`;
     }
 
-    context += `\n---\nKullanıcının mesajı: ${userMessage}`;
-
-    return context;
+    ctx += `\n---\nKullanicinin mesaji: ${userMessage}`;
+    return ctx;
   }
 
   async _callAgent(agentKey, message) {
     try {
-      // Escape message for shell
-      const escapedMsg = message.replace(/'/g, "'\\''");
+      // Write message to temp file to avoid shell escaping issues
+      const tmpFile = path.join(os.tmpdir(), `agent-msg-${Date.now()}.txt`);
+      fs.writeFileSync(tmpFile, message, "utf8");
 
-      const result = execSync(
-        `openclaw agent --agent ${agentKey} --message '${escapedMsg}' --json --timeout 60`,
-        {
-          encoding: "utf8",
-          timeout: 65000,
-          env: { ...process.env, HOME: process.env.HOME || "/home/bozkurt" }
-        }
-      );
+      const result = spawnSync("openclaw", [
+        "agent",
+        "--agent", agentKey,
+        "--message", fs.readFileSync(tmpFile, "utf8"),
+        "--json",
+        "--timeout", "60"
+      ], {
+        encoding: "utf8",
+        timeout: 65000,
+        env: { ...process.env },
+        maxBuffer: 1024 * 1024 * 5
+      });
 
-      const parsed = JSON.parse(result);
+      // Clean up
+      try { fs.unlinkSync(tmpFile); } catch {}
+
+      if (result.error) {
+        throw result.error;
+      }
+
+      const stdout = result.stdout || "";
+      
+      // Find JSON in output (skip any non-JSON prefix)
+      const jsonStart = stdout.indexOf("{");
+      if (jsonStart === -1) {
+        console.error("Agent stdout:", stdout.slice(0, 200));
+        console.error("Agent stderr:", (result.stderr || "").slice(0, 200));
+        throw new Error("No JSON in agent output");
+      }
+
+      const parsed = JSON.parse(stdout.slice(jsonStart));
 
       if (parsed.result?.payloads?.length > 0) {
         return parsed.result.payloads.map(p => p.text || "").join("\n");
       }
 
-      return parsed.result?.text || "Yanıt oluşturulamadı.";
+      return parsed.result?.text || "Yanit olusturulamadi.";
 
     } catch (err) {
-      console.error("Agent call error:", err.message?.slice(0, 200));
-      return `⚠️ Agent yanıt veremedi. Lütfen tekrar deneyin.\n\n_Hata: ${err.message?.slice(0, 100)}_`;
+      console.error("Agent call error:", err.message?.slice(0, 300));
+      return `Bir hata olustu, lutfen tekrar deneyin.`;
     }
   }
 
