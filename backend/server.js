@@ -86,9 +86,16 @@ app.post("/api/ai/chat", authMiddleware, async (req, res) => {
   db.prepare(`INSERT INTO ai_messages(id, session_id, role, content) VALUES (?,?,?,?)`)
     .run("msg_" + uuidv4().slice(0, 8), session_id, "user", message);
 
+  // Get previous messages for context
+  const prevMessages = db.prepare(\`SELECT role, content FROM ai_messages WHERE session_id = ? ORDER BY created_at ASC LIMIT 20\`).all(session_id);
+
   // Process through orchestrator
   const startTime = Date.now();
-  const result = await chatOrchestrator.processMessage(message, req.auth, { session_id, agent_key: session.agent_key });
+  const result = await chatOrchestrator.processMessage(message, req.auth, {
+    session_id,
+    agent_key: session.agent_key,
+    previousMessages: prevMessages
+  });
   const duration = Date.now() - startTime;
 
   // Save assistant message
