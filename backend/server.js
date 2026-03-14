@@ -87,7 +87,7 @@ app.post("/api/ai/chat", authMiddleware, async (req, res) => {
     .run("msg_" + uuidv4().slice(0, 8), session_id, "user", message);
 
   // Get previous messages for context
-  const prevMessages = db.prepare(\`SELECT role, content FROM ai_messages WHERE session_id = ? ORDER BY created_at ASC LIMIT 20\`).all(session_id);
+  const prevMessages = db.prepare(`SELECT role, content FROM ai_messages WHERE session_id = ? ORDER BY created_at ASC LIMIT 20`).all(session_id);
 
   // Process through orchestrator
   const startTime = Date.now();
