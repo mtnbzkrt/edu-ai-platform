@@ -141,6 +141,50 @@ class ChatOrchestrator {
       return text;
     }
 
+    // ── KONU ANLATIMI ──
+    if (msg.includes("anlat") || msg.includes("öğret") || msg.includes("açıkla") || msg.includes("ders")) {
+      // Detect which topic
+      const topicMap = {
+        "kesir": { name: "Kesirlerde Sıralama", content: this._teachFractions() },
+        "rasyonel": { name: "Rasyonel Sayılar", content: this._teachRationals() },
+        "yüzde": { name: "Yüzde Problemleri", content: this._teachPercentage() },
+        "denklem": { name: "Denklemler", content: this._teachEquations() },
+        "oran": { name: "Oran ve Orantı", content: this._teachRatio() },
+        "cebir": { name: "Cebirsel İfadeler", content: this._teachAlgebra() },
+        "tam sayı": { name: "Tam Sayılarla İşlemler", content: this._teachIntegers() },
+        "geometri": { name: "Geometrik Çizimler", content: this._teachGeometry() },
+      };
+
+      // Check if a specific topic is mentioned
+      let matched = null;
+      for (const [key, val] of Object.entries(topicMap)) {
+        if (msg.includes(key)) { matched = val; break; }
+      }
+
+      // If no specific topic, check weak areas and teach the weakest
+      if (!matched) {
+        const results = executeTool("get_self_exam_results", { subject: "math", limit: 3 }, auth);
+        usedTools.push("get_self_exam_results");
+        const examIds = results.items.map(r => r.exam_id);
+        if (examIds.length > 0) {
+          const outcomes = executeTool("get_self_outcome_breakdown", { subject: "math", examIds }, auth);
+          usedTools.push("get_self_outcome_breakdown");
+          const weakest = outcomes.outcomes.filter(o => o.success_rate < 0.6).sort((a, b) => a.success_rate - b.success_rate);
+          if (weakest.length > 0) {
+            const weakName = weakest[0].outcome_name.toLowerCase();
+            for (const [key, val] of Object.entries(topicMap)) {
+              if (weakName.includes(key)) { matched = val; break; }
+            }
+            if (!matched) matched = { name: weakest[0].outcome_name, content: this._teachGenericTopic(weakest[0].outcome_name) };
+          }
+        }
+      }
+
+      if (!matched) matched = { name: "Genel Matematik", content: this._teachGenericTopic("Genel Matematik") };
+
+      return `📖 **${matched.name} — Ders Anlatımı**\n\n${matched.content}`;
+    }
+
     // Default greeting
     return `Merhaba ${profile.full_name}! 👋\n\nBen senin öğrenme asistanınım. Sana şu konularda yardımcı olabilirim:\n\n` +
       `📊 **Sınav sonuçlarım** — "Sınav sonuçlarımı göster"\n` +
@@ -351,6 +395,228 @@ class ChatOrchestrator {
       `📅 **Devam** — "Devamsızlık durumu ne?"\n` +
       `📈 **Sınavlar** — "Sınav sonuçları nasıl?"\n`;
   }
+
+
+  _teachFractions() {
+    return `📌 **Kesirlerde Sıralama Nedir?**
+
+Kesirler, bir bütünün parçalarını gösterir. Örneğin 3/4 demek, bir şeyi 4 eşit parçaya bölüp 3'ünü almak demektir.
+
+🔑 **Kural 1: Paydaları Eşitle**
+İki kesri karşılaştırmak için paydalarını eşit yapmalıyız.
+
+**Örnek:** 2/3 ile 3/5'i karşılaştıralım
+• 2/3 = 10/15 (her iki tarafı 5 ile çarptık)
+• 3/5 = 9/15 (her iki tarafı 3 ile çarptık)
+• 10/15 > 9/15 → Yani **2/3 > 3/5** ✅
+
+🔑 **Kural 2: Çapraz Çarpma (Kısa Yol)**
+a/b ile c/d karşılaştırırken: a×d ile b×c'yi karşılaştır.
+
+**Örnek:** 3/7 ile 2/5
+• 3 × 5 = 15
+• 7 × 2 = 14
+• 15 > 14 → **3/7 > 2/5** ✅
+
+🔑 **Kural 3: Payları Eşit Kesirler**
+Payları eşit olan kesirlerde, paydası küçük olan daha büyüktür.
+• 2/3 > 2/5 (çünkü üçte iki, beşte ikiden büyük)
+
+📝 **Mini Quiz — Şimdi sen dene!**
+Aşağıdakileri büyükten küçüğe sırala:
+• 1/2, 3/8, 5/6
+
+💡 İpucu: Hepsinin paydasını 24 yap ve karşılaştır!
+
+Cevabı görmek istersen "cevap" yaz, başka konu istersen söyle! 🙂`;
+  }
+
+  _teachRationals() {
+    return `📌 **Rasyonel Sayılar**
+
+Rasyonel sayı, a/b şeklinde yazılabilen sayılardır (b ≠ 0).
+
+**Örnekler:**
+• 3/4 → rasyonel ✅
+• -2/5 → rasyonel ✅
+• 0.75 → rasyonel ✅ (çünkü 3/4)
+• 7 → rasyonel ✅ (çünkü 7/1)
+
+🔑 **Sayı doğrusunda gösterme:**
+-2/3 sayısını göstermek için:
+1. 0 ile -1 arasını 3 eşit parçaya böl
+2. 0'dan sola 2 parça git
+
+🔑 **Toplama/Çıkarma:**
+Paydalar aynıysa payları topla/çıkar:
+• 2/5 + 1/5 = 3/5
+
+Paydalar farklıysa önce eşitle:
+• 1/3 + 1/4 = 4/12 + 3/12 = 7/12
+
+📝 **Sana soru:** -3/4 + 5/4 = ?
+
+Dene bakalım! Takılırsan ipucu isterim de 💪`;
+  }
+
+  _teachPercentage() {
+    return `📌 **Yüzde Problemleri**
+
+Yüzde = "yüzde kaç" = "100'de kaç"
+%25 = 25/100 = 1/4
+
+🔑 **Bir sayının yüzdesini bulma:**
+Formül: Sayı × Yüzde / 100
+
+**Örnek:** 200'ün %30'u kaçtır?
+200 × 30 / 100 = **60** ✅
+
+🔑 **Yüzde artış/azalış:**
+• Bir ürün 80 TL'den 100 TL'ye çıktı. Yüzde kaç arttı?
+  Artış: 100 - 80 = 20
+  Oran: 20/80 = 0.25 = **%25 artış** ✅
+
+• 120 TL'lik ürüne %20 indirim:
+  120 × 20/100 = 24 TL indirim
+  Yeni fiyat: 120 - 24 = **96 TL** ✅
+
+📝 **Sana soru:** Bir sınıfta 40 öğrenci var. %60'ı kız ise kaç kız öğrenci vardır?
+
+Dene! 🎯`;
+  }
+
+  _teachEquations() {
+    return `📌 **Birinci Dereceden Denklemler**
+
+Denklem = eşittir işaretinin iki yanı birbirine eşit olan ifade.
+
+🔑 **Temel Kural: İki tarafa da aynı işlemi yap**
+
+**Örnek 1:** x + 5 = 12
+• İki taraftan 5 çıkar: x = 12 - 5 = **7** ✅
+
+**Örnek 2:** 3x = 18
+• İki tarafı 3'e böl: x = 18/3 = **6** ✅
+
+**Örnek 3:** 2x + 3 = 11
+• Adım 1: 2x = 11 - 3 = 8
+• Adım 2: x = 8/2 = **4** ✅
+
+🔑 **Doğrulama:**
+x = 4'ü yerine koy: 2(4) + 3 = 8 + 3 = 11 ✅ Doğru!
+
+📝 **Sana soru:** 5x - 7 = 18, x = ?
+
+Adım adım çöz, kontrol et! 💪`;
+  }
+
+  _teachRatio() {
+    return `📌 **Oran ve Orantı**
+
+**Oran:** İki çokluğun birbirine bölümüdür.
+3'ün 5'e oranı = 3/5
+
+**Orantı:** İki oranın birbirine eşit olmasıdır.
+a/b = c/d → a×d = b×c (çapraz çarpım)
+
+🔑 **Doğru Orantı:**
+Biri artarsa diğeri de artar.
+• 3 kalem 15 TL ise 5 kalem kaç TL?
+  3/15 = 5/x → x = 75/3 = **25 TL** ✅
+
+🔑 **Ters Orantı:**
+Biri artarsa diğeri azalır.
+• 4 işçi bir işi 12 günde bitiriyorsa, 6 işçi kaç günde bitirir?
+  4 × 12 = 6 × x → x = 48/6 = **8 gün** ✅
+
+📝 **Sana soru:** 2 kg elma 24 TL ise 5 kg elma kaç TL?
+
+Çöz bakalım! 🍎`;
+  }
+
+  _teachAlgebra() {
+    return `📌 **Cebirsel İfadeler**
+
+Cebirsel ifade = sayılar + harfler + işlemler
+
+**Örnek:** 3x + 2y - 5
+
+🔑 **Terimler:**
+• 3x → katsayı: 3, değişken: x
+• 2y → katsayı: 2, değişken: y
+• -5 → sabit terim
+
+🔑 **Benzer Terimleri Toplama:**
+5x + 3x = 8x ✅
+2y - y = y ✅
+3x + 2y → toplanamaz (farklı değişkenler)
+
+🔑 **Çarpma:**
+2 × (3x + 4) = 6x + 8 (dağılma özelliği)
+
+📝 **Sana soru:** 4x + 3 - 2x + 7 ifadesini sadeleştir.
+
+Dene! ✏️`;
+  }
+
+  _teachIntegers() {
+    return `📌 **Tam Sayılarla İşlemler**
+
+Tam sayılar: ..., -3, -2, -1, 0, 1, 2, 3, ...
+
+🔑 **Toplama Kuralları:**
+• (+) + (+) = (+) → 3 + 5 = 8
+• (-) + (-) = (-) → (-3) + (-5) = -8
+• Farklı işaretliler: büyükten küçüğü çıkar, büyüğün işaretini al
+  (-7) + 4 = -3
+  8 + (-3) = 5
+
+🔑 **Çarpma/Bölme Kuralları:**
+• Aynı işaret → pozitif: (-3) × (-2) = +6
+• Farklı işaret → negatif: (-4) × 3 = -12
+
+📝 **Sana soru:** (-8) + 3 × (-2) = ?
+(Dikkat: önce çarpma!)
+
+Çöz bakalım! 🔢`;
+  }
+
+  _teachGeometry() {
+    return `📌 **Geometrik Çizimler**
+
+🔑 **Temel Kavramlar:**
+• **Açı:** İki ışının ortak başlangıç noktasından oluşan şekil
+• **Dik açı:** 90°
+• **Düz açı:** 180°
+• **Tümler açılar:** Toplamı 90° olan açılar
+• **Bütünler açılar:** Toplamı 180° olan açılar
+
+🔑 **Üçgen Özellikleri:**
+• İç açılar toplamı = 180°
+• Herhangi bir kenar, diğer iki kenarın toplamından küçüktür
+
+🔑 **Dörtgen Özellikleri:**
+• İç açılar toplamı = 360°
+• Kare: 4 kenar eşit, 4 açı 90°
+• Dikdörtgen: karşılıklı kenarlar eşit, 4 açı 90°
+
+📝 **Sana soru:** Bir üçgende iki açı 45° ve 65° ise üçüncü açı kaç derecedir?
+
+Düşün ve cevapla! 📐`;
+  }
+
+  _teachGenericTopic(topicName) {
+    return `Bu konu hakkında detaylı anlatım hazırlıyorum.
+
+📌 **${topicName}** konusunda çalışmaya başlamak için:
+
+1. Önce temel kavramları gözden geçirelim
+2. Basit örneklerle ilerleyelim
+3. Sonra seni test edelim
+
+Hangi alt konudan başlamak istersin? Ya da doğrudan örnek soru çözelim mi?`;
+  }
+
 }
 
 module.exports = new ChatOrchestrator();
