@@ -1,0 +1,4 @@
+node_modules/
+backend/src/data/
+*.db
+*.log

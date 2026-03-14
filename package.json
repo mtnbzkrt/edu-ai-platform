@@ -1,0 +1,18 @@
+{
+  "name": "edu-ai-platform",
+  "version": "1.0.0",
+  "description": "Education AI Platform - Agent-based school intelligence system",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "seed": "node backend/src/school/seed/seed.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "better-sqlite3": "^9.4.3",
+    "jsonwebtoken": "^9.0.2",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "uuid": "^9.0.0"
+  }
+}
