@@ -141,7 +141,7 @@ a{color:#63b3ed;text-decoration:none}
           <div class="quick-actions" id="quickActions"></div>
         </div>
       </div>
-      <div id="chatView" style="display:none;flex:1;flex-direction:column">
+      <div id="chatView" class="chat-view">
         <div class="chat-header" id="chatHeader"></div>
         <div class="messages" id="messages"></div>
         <div class="chat-input">
@@ -280,7 +280,6 @@ async function openSession(sessionId) {
   renderSessions();
 
   document.getElementById("welcomeScreen").style.display = "none";
-  document.getElementById("chatView").classList.add("visible");
   const cv = document.getElementById("chatView");
   cv.classList.add("visible");
 
