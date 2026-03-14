@@ -3,7 +3,7 @@ const { createProxyMiddleware } = require("http-proxy-middleware");
 const path = require("path");
 
 const app = express();
-const HOST_BACKEND = process.env.HOST_BACKEND || "http://host.docker.internal:3081";
+const HOST_BACKEND = process.env.HOST_BACKEND || "http://172.17.0.1:3081";
 
 app.use(express.static(path.join(__dirname, "frontend")));
 
