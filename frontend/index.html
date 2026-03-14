@@ -2,147 +2,149 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🎓 Eğitim AI Platform</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Eğitim AI — Test Platformu</title>
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1729;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column}
-a{color:#63b3ed;text-decoration:none}
-
-/* LOGIN */
-.login-page{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#0f1729 0%,#1a2744 100%)}
-.login-box{background:#1e293b;border-radius:16px;padding:40px;width:90%;max-width:420px;border:1px solid #334155}
-.login-box h1{font-size:1.6rem;text-align:center;margin-bottom:8px;color:#63b3ed}
-.login-box p{text-align:center;color:#94a3b8;font-size:.85rem;margin-bottom:24px}
-.login-box input{width:100%;padding:12px 16px;background:#0f172a;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:.95rem;margin-bottom:12px;outline:none}
-.login-box input:focus{border-color:#3b82f6}
-.login-box button{width:100%;padding:12px;background:#3b82f6;color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer;transition:.2s}
-.login-box button:hover{background:#2563eb}
-.login-error{color:#f87171;font-size:.85rem;text-align:center;margin-top:8px;display:none}
-.demo-accounts{margin-top:20px;padding-top:16px;border-top:1px solid #334155}
-.demo-accounts h3{font-size:.8rem;color:#64748b;text-transform:uppercase;margin-bottom:8px;letter-spacing:.05em}
-.demo-btn{display:block;width:100%;padding:8px 12px;margin-bottom:6px;background:#1e293b;border:1px solid #334155;border-radius:6px;color:#94a3b8;cursor:pointer;font-size:.82rem;text-align:left;transition:.15s}
-.demo-btn:hover{background:#334155;color:#e2e8f0;border-color:#475569}
-.demo-btn .role-tag{float:right;padding:1px 8px;border-radius:10px;font-size:.72rem;font-weight:600}
-.role-student{background:rgba(52,211,153,.15);color:#34d399}
-.role-teacher{background:rgba(96,165,250,.15);color:#60a5fa}
-.role-parent{background:rgba(251,191,36,.15);color:#fbbf24}
-
-/* APP LAYOUT */
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#f8fafc;--card:#fff;--border:#e2e8f0;--text:#1e293b;--text2:#64748b;--primary:#3b82f6;--primary-hover:#2563eb;--green:#22c55e;--red:#ef4444;--yellow:#f59e0b;--purple:#8b5cf6;--sidebar-bg:#1e293b;--sidebar-text:#e2e8f0}
+body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden}
 .app{display:none;flex-direction:column;height:100vh;overflow:hidden}
-.topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:#1e293b;border-bottom:1px solid #334155}
-.topbar .brand{display:flex;align-items:center;gap:10px}
-.topbar .brand h2{font-size:1.1rem;color:#63b3ed}
-.topbar .user-info{display:flex;align-items:center;gap:12px}
-.topbar .user-badge{padding:4px 12px;border-radius:20px;font-size:.78rem;font-weight:600}
-.topbar .logout-btn{padding:6px 14px;background:#ef4444;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:.8rem}
+.login{display:flex;align-items:center;justify-content:center;height:100vh;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%)}
+.login-card{background:#fff;padding:40px;border-radius:16px;width:380px;box-shadow:0 20px 60px rgba(0,0,0,.15)}
+.login-card h1{font-size:24px;margin-bottom:4px;color:#1e293b}
+.login-card p{color:#64748b;margin-bottom:24px;font-size:14px}
+.login-card input{width:100%;padding:12px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;margin-bottom:12px;outline:none}
+.login-card input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(59,130,246,.1)}
+.login-card button{width:100%;padding:12px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer}
+.login-card button:hover{background:var(--primary-hover)}
+.login-card .error{color:var(--red);font-size:13px;margin-top:8px}
+.login-card .accounts{margin-top:16px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8}
+.login-card .accounts span{display:inline-block;background:#f1f5f9;padding:2px 8px;border-radius:4px;margin:2px;cursor:pointer;color:#475569}
+.login-card .accounts span:hover{background:#e2e8f0}
 
+/* Header */
+.header{display:flex;align-items:center;justify-content:space-between;padding:12px 24px;background:#fff;border-bottom:1px solid var(--border);flex-shrink:0}
+.header h2{font-size:18px;color:var(--text)}
+.header .user-info{display:flex;align-items:center;gap:12px;font-size:14px}
+.header .role-badge{padding:4px 10px;border-radius:12px;font-size:12px;font-weight:600;color:#fff}
+.role-student{background:var(--green)}
+.role-teacher{background:var(--primary)}
+.role-parent{background:var(--yellow);color:#1e293b}
+.header button{padding:6px 14px;border:1px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-size:13px}
+
+/* Main layout */
 .main-content{display:flex;flex:1;overflow:hidden;min-height:0}
-.sidebar{width:260px;background:#1a2332;border-right:1px solid #334155;display:flex;flex-direction:column;overflow-y:auto}
-.sidebar h3{padding:16px 16px 8px;font-size:.75rem;text-transform:uppercase;color:#64748b;letter-spacing:.05em}
-.session-list{flex:1;overflow-y:auto;padding:0 8px}
-.session-item{padding:10px 12px;margin:2px 0;border-radius:8px;cursor:pointer;font-size:.85rem;transition:.15s;display:flex;justify-content:space-between;align-items:center}
-.session-item:hover{background:#334155}
-.session-item.active{background:#334155;border-left:3px solid #3b82f6}
-.session-item .time{font-size:.7rem;color:#64748b}
-.new-session-btn{margin:12px;padding:10px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:.85rem}
-.new-session-btn:hover{background:#2563eb}
 
-.chat-area{flex:1;display:flex;flex-direction:column;background:#0f172a;overflow:hidden;min-height:0}
-.chat-header{padding:12px 20px;background:#1e293b;border-bottom:1px solid #334155;font-size:.9rem;color:#94a3b8}
+/* Sidebar */
+.sidebar{width:280px;background:var(--sidebar-bg);color:var(--sidebar-text);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}
+.sidebar h3{padding:16px 20px 8px;font-size:13px;text-transform:uppercase;color:#94a3b8;letter-spacing:.5px}
+.sidebar .new-session{margin:8px 12px;padding:10px;background:rgba(255,255,255,.1);border:1px dashed rgba(255,255,255,.2);border-radius:8px;color:#e2e8f0;cursor:pointer;text-align:center;font-size:13px}
+.sidebar .new-session:hover{background:rgba(255,255,255,.15)}
+.sessions-list{flex:1;overflow-y:auto;padding:4px 8px}
+.session-item{padding:10px 12px;border-radius:8px;cursor:pointer;margin-bottom:4px;font-size:13px;color:#cbd5e1}
+.session-item:hover{background:rgba(255,255,255,.08)}
+.session-item.active{background:rgba(59,130,246,.3);color:#fff}
+.session-item .agent-tag{font-size:11px;color:#94a3b8}
+
+/* Chat area */
+.chat-area{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.welcome-screen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;text-align:center}
+.welcome-screen h2{font-size:28px;margin-bottom:8px}
+.welcome-screen p{color:var(--text2);max-width:500px;line-height:1.6}
+.welcome-screen .tools-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:24px;max-width:700px;width:100%}
+.welcome-screen .tool-card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px;text-align:left;cursor:pointer}
+.welcome-screen .tool-card:hover{border-color:var(--primary);box-shadow:0 2px 8px rgba(59,130,246,.1)}
+.welcome-screen .tool-card h4{font-size:13px;margin-bottom:4px}
+.welcome-screen .tool-card p{font-size:12px;color:var(--text2);margin:0}
+
+/* Chat view */
 .chat-view{display:none;flex-direction:column;flex:1;overflow:hidden;min-height:0}
 .chat-view.visible{display:flex}
-.messages{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px;min-height:0;max-height:100%}
-.msg{max-width:80%;padding:12px 16px;border-radius:12px;font-size:.9rem;line-height:1.5;white-space:pre-wrap;word-wrap:break-word}
-.msg.user{align-self:flex-end;background:#3b82f6;color:#fff;border-bottom-right-radius:4px}
-.msg.assistant{align-self:flex-start;background:#1e293b;color:#e2e8f0;border-bottom-left-radius:4px;border:1px solid #334155}
-.msg.assistant strong{color:#63b3ed}
-.msg .tools-used{margin-top:8px;padding-top:6px;border-top:1px solid #334155;font-size:.72rem;color:#64748b}
-.msg .tools-used span{display:inline-block;padding:1px 6px;margin:2px;background:#0f172a;border-radius:4px;font-family:monospace}
+.messages{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px;min-height:0}
+.msg{max-width:85%;padding:12px 16px;border-radius:12px;font-size:14px;line-height:1.6;word-wrap:break-word}
+.msg.user{align-self:flex-end;background:var(--primary);color:#fff;border-bottom-right-radius:4px}
+.msg.assistant{align-self:flex-start;background:#fff;border:1px solid var(--border);border-bottom-left-radius:4px}
+.msg.assistant pre{background:#f1f5f9;padding:8px;border-radius:6px;overflow-x:auto;font-size:12px;margin:8px 0}
+.msg.assistant code{font-family:'Fira Code',monospace;font-size:12px}
+.msg .tools-used{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:11px;color:var(--text2)}
+.msg .tools-used span{display:inline-block;background:#f0fdf4;color:#16a34a;padding:2px 6px;border-radius:4px;margin:2px;font-size:11px}
 
-.chat-input{display:flex;gap:8px;padding:16px 20px;background:#1e293b;border-top:1px solid #334155}
-.chat-input input{flex:1;padding:12px 16px;background:#0f172a;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:.95rem;outline:none}
-.chat-input input:focus{border-color:#3b82f6}
-.chat-input button{padding:12px 24px;background:#3b82f6;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:.9rem}
-.chat-input button:hover{background:#2563eb}
+/* Input */
+.chat-input{padding:16px 20px;border-top:1px solid var(--border);background:#fff;display:flex;gap:10px;flex-shrink:0}
+.chat-input input{flex:1;padding:12px 16px;border:1px solid var(--border);border-radius:10px;font-size:14px;outline:none}
+.chat-input input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(59,130,246,.1)}
+.chat-input button{padding:12px 24px;background:var(--primary);color:#fff;border:none;border-radius:10px;font-weight:600;cursor:pointer;font-size:14px}
+.chat-input button:hover{background:var(--primary-hover)}
 .chat-input button:disabled{opacity:.5;cursor:not-allowed}
 
-.typing{align-self:flex-start;color:#64748b;font-size:.85rem;font-style:italic;padding:8px 16px}
-
-.welcome-screen{flex:1;display:flex;align-items:center;justify-content:center;text-align:center;padding:40px}
-.welcome-screen h2{font-size:1.4rem;color:#63b3ed;margin-bottom:8px}
-.welcome-screen p{color:#94a3b8;font-size:.9rem;max-width:400px}
-
-.quick-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px;justify-content:center}
-.quick-btn{padding:8px 16px;background:#1e293b;border:1px solid #334155;border-radius:20px;color:#94a3b8;cursor:pointer;font-size:.82rem;transition:.15s}
-.quick-btn:hover{background:#334155;color:#e2e8f0;border-color:#3b82f6}
+/* Tool Test Panel */
+.tool-panel{width:320px;border-left:1px solid var(--border);background:#fff;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+.tool-panel h3{padding:16px 20px 8px;font-size:13px;text-transform:uppercase;color:var(--text2);letter-spacing:.5px;border-bottom:1px solid var(--border)}
+.tool-panel .tool-list{flex:1;overflow-y:auto;padding:8px}
+.tool-btn{display:block;width:100%;text-align:left;padding:10px 12px;background:none;border:1px solid transparent;border-radius:8px;cursor:pointer;font-size:13px;color:var(--text);margin-bottom:2px}
+.tool-btn:hover{background:#f8fafc;border-color:var(--border)}
+.tool-btn.active{background:#eff6ff;border-color:var(--primary);color:var(--primary)}
+.tool-result{padding:12px;background:#f8fafc;border-top:1px solid var(--border);overflow-y:auto;max-height:50%;font-size:12px}
+.tool-result pre{white-space:pre-wrap;word-wrap:break-word}
 
 @media(max-width:768px){
   .sidebar{display:none}
-  .msg{max-width:95%}
+  .tool-panel{display:none}
 }
 </style>
 </head>
 <body>
 
 <!-- LOGIN -->
-<div class="login-page" id="loginPage">
-  <div class="login-box">
+<div class="login" id="loginScreen">
+  <div class="login-card">
     <h1>🎓 Eğitim AI</h1>
-    <p>Akıllı Eğitim Platformuna Hoş Geldiniz</p>
-    <input type="text" id="username" placeholder="Kullanıcı adı" autocomplete="username">
-    <input type="password" id="password" placeholder="Şifre" autocomplete="current-password">
+    <p>Test Platformu — Tool API & Agent Testi</p>
+    <input type="text" id="loginUser" placeholder="Kullanıcı adı" autofocus>
+    <input type="password" id="loginPass" placeholder="Şifre">
     <button onclick="login()">Giriş Yap</button>
-    <div class="login-error" id="loginError"></div>
-    <div class="demo-accounts">
-      <h3>Demo Hesaplar</h3>
-      <button class="demo-btn" onclick="quickLogin('ahmet','123456')">
-        🎓 Ahmet Yılmaz (7/A Öğrenci) <span class="role-tag role-student">Öğrenci</span>
-      </button>
-      <button class="demo-btn" onclick="quickLogin('zeynep','123456')">
-        🎓 Zeynep Demir (7/A Öğrenci) <span class="role-tag role-student">Öğrenci</span>
-      </button>
-      <button class="demo-btn" onclick="quickLogin('ayse.ogretmen','123456')">
-        👩‍🏫 Ayşe Kaya (Matematik) <span class="role-tag role-teacher">Öğretmen</span>
-      </button>
-      <button class="demo-btn" onclick="quickLogin('veli.yilmaz','123456')">
-        👨 Mehmet Yılmaz (Ahmet'in babası) <span class="role-tag role-parent">Veli</span>
-      </button>
-      <button class="demo-btn" onclick="quickLogin('veli.demir','123456')">
-        👩 Fatma Demir (Zeynep'in annesi) <span class="role-tag role-parent">Veli</span>
-      </button>
+    <div class="error" id="loginError"></div>
+    <div class="accounts">
+      Test hesapları:
+      <span onclick="quickLogin('ahmet','123456')">🎓 ahmet</span>
+      <span onclick="quickLogin('zeynep','123456')">🎓 zeynep</span>
+      <span onclick="quickLogin('ayse.ogretmen','123456')">👩‍🏫 ayse</span>
+      <span onclick="quickLogin('veli.yilmaz','123456')">👨 veli</span>
+      <span onclick="quickLogin('admin','admin123')">⚙️ admin</span>
     </div>
   </div>
 </div>
 
 <!-- APP -->
-<div class="app" id="appPage">
-  <div class="topbar">
-    <div class="brand">
-      <h2>🎓 Eğitim AI</h2>
-    </div>
+<div class="app" id="app">
+  <!-- Header -->
+  <div class="header">
+    <h2>🎓 Eğitim AI — Test Platformu</h2>
     <div class="user-info">
-      <span id="userFullName"></span>
-      <span class="user-badge" id="userRoleBadge"></span>
-      <button class="logout-btn" onclick="logout()">Çıkış</button>
+      <span id="userName"></span>
+      <span class="role-badge" id="roleBadge"></span>
+      <span id="agentLabel" style="font-size:12px;color:#94a3b8"></span>
+      <button onclick="logout()">Çıkış</button>
     </div>
   </div>
+
   <div class="main-content">
+    <!-- Sidebar: Sessions -->
     <div class="sidebar">
-      <button class="new-session-btn" onclick="newSession()">+ Yeni Konuşma</button>
       <h3>Konuşmalar</h3>
-      <div class="session-list" id="sessionList"></div>
+      <div class="new-session" onclick="newSession()">+ Yeni Konuşma</div>
+      <div class="sessions-list" id="sessionsList"></div>
     </div>
+
+    <!-- Chat Area -->
     <div class="chat-area" id="chatArea">
       <div class="welcome-screen" id="welcomeScreen">
-        <div>
-          <h2 id="welcomeTitle">Hoş Geldiniz!</h2>
-          <p id="welcomeText">Yeni bir konuşma başlatarak eğitim asistanınızla sohbet edebilirsiniz.</p>
-          <div class="quick-actions" id="quickActions"></div>
-        </div>
+        <h2>Hoş Geldiniz 👋</h2>
+        <p>Bu bir <strong>test platformudur</strong>. Agent'ların tool çağrılarını ve School Connector yanıtlarını test edebilirsiniz.</p>
+        <div class="tools-grid" id="toolsGrid"></div>
       </div>
+
       <div id="chatView" class="chat-view">
-        <div class="chat-header" id="chatHeader"></div>
         <div class="messages" id="messages"></div>
         <div class="chat-input">
           <input type="text" id="chatInput" placeholder="Mesajınızı yazın..." onkeydown="if(event.key==='Enter')sendMessage()">
@@ -150,125 +152,80 @@ a{color:#63b3ed;text-decoration:none}
         </div>
       </div>
     </div>
+
+    <!-- Tool Test Panel -->
+    <div class="tool-panel" id="toolPanel">
+      <h3>🔧 Tool API Testi</h3>
+      <div class="tool-list" id="toolList"></div>
+      <div class="tool-result" id="toolResult" style="display:none">
+        <strong>Sonuç:</strong>
+        <pre id="toolResultContent"></pre>
+      </div>
+    </div>
   </div>
 </div>
 
 <script>
+let TOKEN = null, USER = null, CURRENT_SESSION = null;
 const API = window.location.origin;
-let state = { token: null, user: null, sessions: [], currentSession: null, agentKey: null };
-
-// ── AUTH ──
-async function login() {
-  const username = document.getElementById("username").value;
-  const password = document.getElementById("password").value;
-  const errEl = document.getElementById("loginError");
-  errEl.style.display = "none";
-
-  try {
-    const r = await fetch(API + "/api/auth/login", {
-      method: "POST", headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ username, password })
-    });
-    const d = await r.json();
-    if (!d.ok) { errEl.textContent = d.error.message; errEl.style.display = "block"; return; }
-
-    state.token = d.data.token;
-    state.user = d.data.user;
-    state.agentKey = d.data.agent_key;
-    localStorage.setItem("edu_token", state.token);
-    localStorage.setItem("edu_user", JSON.stringify(state.user));
-    localStorage.setItem("edu_agent", state.agentKey);
-    showApp();
-  } catch(e) { errEl.textContent = "Bağlantı hatası"; errEl.style.display = "block"; }
-}
 
 function quickLogin(u, p) {
-  document.getElementById("username").value = u;
-  document.getElementById("password").value = p;
+  document.getElementById("loginUser").value = u;
+  document.getElementById("loginPass").value = p;
   login();
 }
 
-function logout() {
-  localStorage.clear();
-  state = { token: null, user: null, sessions: [], currentSession: null };
-  document.getElementById("loginPage").style.display = "flex";
-  document.getElementById("appPage").style.display = "none";
-}
-
-// ── APP ──
-function showApp() {
-  document.getElementById("loginPage").style.display = "none";
-  document.getElementById("appPage").style.display = "flex";
-
-  const roleLabels = { student:"Öğrenci", teacher:"Öğretmen", parent:"Veli", admin:"Yönetici" };
-  const roleColors = { student:"role-student", teacher:"role-teacher", parent:"role-parent" };
-  document.getElementById("userFullName").textContent = state.user.full_name;
-  const badge = document.getElementById("userRoleBadge");
-  badge.textContent = roleLabels[state.user.role] || state.user.role;
-  badge.className = "user-badge " + (roleColors[state.user.role] || "");
-
-  setupWelcome();
-  loadSessions();
-}
-
-function setupWelcome() {
-  const qa = document.getElementById("quickActions");
-  const actions = {
-    student: [
-      ["📊 Sınav sonuçlarım","Sınav sonuçlarımı göster"],
-      ["📝 Ödevlerim","Bekleyen ödevlerim ne?"],
-      ["🔍 Eksik konularım","Hangi konularda eksik var?"],
-      ["📅 Çalışma planı","Bana çalışma planı yap"]
-    ],
-    teacher: [
-      ["📚 Sınıflarım","Sınıflarımı göster"],
-      ["📊 Sınıf analizi","Sınıf başarı analizi yap"],
-      ["🚨 Risk analizi","Riskli öğrenciler kimler?"],
-      ["👥 Öğrenci listesi","Öğrencileri listele"]
-    ],
-    parent: [
-      ["📊 Durum raporu","Çocuğum nasıl gidiyor?"],
-      ["📝 Ödevler","Ödevlerini yapıyor mu?"],
-      ["📅 Devamsızlık","Devamsızlık durumu ne?"],
-      ["📈 Sınavlar","Sınav sonuçları nasıl?"]
-    ]
-  };
-
-  qa.innerHTML = (actions[state.user.role] || []).map(([label, msg]) =>
-    `<button class="quick-btn" onclick="quickChat('${msg}')">${label}</button>`
-  ).join("");
-}
-
-// ── SESSIONS ──
-async function apiFetch(url, opts = {}) {
-  return fetch(API + url, {
-    ...opts,
-    headers: { "Content-Type":"application/json", "Authorization":"Bearer " + state.token, ...(opts.headers||{}) }
-  }).then(r => r.json());
-}
-
-async function loadSessions() {
-  const d = await apiFetch("/api/ai/sessions");
-  if (d.ok) {
-    state.sessions = d.data;
-    renderSessions();
+async function login() {
+  const username = document.getElementById("loginUser").value;
+  const password = document.getElementById("loginPass").value;
+  try {
+    const r = await fetch(API + "/api/auth/login", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password })
+    });
+    const d = await r.json();
+    if (!d.ok) { document.getElementById("loginError").textContent = d.error?.message || "Hata"; return; }
+    TOKEN = d.data.token;
+    USER = d.data.user;
+    document.getElementById("loginScreen").style.display = "none";
+    document.getElementById("app").style.display = "flex";
+    document.getElementById("userName").textContent = USER.full_name;
+    const badge = document.getElementById("roleBadge");
+    badge.textContent = { student: "Öğrenci", teacher: "Öğretmen", parent: "Veli", admin: "Admin" }[USER.role];
+    badge.className = "role-badge role-" + USER.role;
+    document.getElementById("agentLabel").textContent = d.data.agent_key;
+    loadSessions();
+    loadTools();
+    loadToolsGrid();
+  } catch (e) {
+    document.getElementById("loginError").textContent = "Bağlantı hatası";
   }
 }
 
-function renderSessions() {
-  const el = document.getElementById("sessionList");
-  el.innerHTML = state.sessions.map(s => {
-    const active = state.currentSession === s.id ? " active" : "";
-    const time = new Date(s.updated_at || s.created_at).toLocaleTimeString("tr-TR", { hour:"2-digit", minute:"2-digit" });
-    return `<div class="session-item${active}" onclick="openSession('${s.id}')">
-      <span>${s.title || "Konuşma"}</span>
-      <span class="time">${time}</span>
-    </div>`;
-  }).join("");
+function logout() {
+  TOKEN = null; USER = null; CURRENT_SESSION = null;
+  document.getElementById("loginScreen").style.display = "flex";
+  document.getElementById("app").style.display = "none";
+}
+
+async function loadSessions() {
+  const r = await fetch(API + "/api/ai/sessions", { headers: { Authorization: "Bearer " + TOKEN } });
+  const d = await r.json();
+  const el = document.getElementById("sessionsList");
+  el.innerHTML = (d.data?.sessions || []).map(s =>
+    `<div class="session-item${CURRENT_SESSION === s.id ? ' active' : ''}" onclick="openSession('${s.id}')">
+      <div>${s.title || 'Konuşma'}</div>
+      <div class="agent-tag">${s.agent_key}</div>
+    </div>`
+  ).join("");
 }
 
 async function newSession() {
-  const d = await apiFetch("/api/ai/sessions", { method: "POST", body: JSON.stringify({ agent_key: state.agentKey }) });
+  const r = await fetch(API + "/api/ai/sessions", {
+    method: "POST", headers: { Authorization: "Bearer " + TOKEN, "Content-Type": "application/json" },
+    body: JSON.stringify({})
+  });
+  const d = await r.json();
   if (d.ok) {
     await loadSessions();
     openSession(d.data.session_id);
@@ -276,109 +233,135 @@ async function newSession() {
 }
 
 async function openSession(sessionId) {
-  state.currentSession = sessionId;
-  renderSessions();
-
+  CURRENT_SESSION = sessionId;
   document.getElementById("welcomeScreen").style.display = "none";
-  const cv = document.getElementById("chatView");
-  cv.classList.add("visible");
+  document.getElementById("chatView").classList.add("visible");
 
-  const d = await apiFetch("/api/ai/sessions/" + sessionId);
-  if (!d.ok) return;
-
-  const agentLabels = { "learner-agent":"🎓 Öğrenme Asistanı", "teacher-agent":"👩‍🏫 Öğretmen Asistanı", "parent-agent":"👨‍👩‍👧 Veli Asistanı" };
-  document.getElementById("chatHeader").textContent = agentLabels[d.data.agent_key] || d.data.agent_key;
-
+  const r = await fetch(API + "/api/ai/sessions/" + sessionId, { headers: { Authorization: "Bearer " + TOKEN } });
+  const d = await r.json();
   const msgEl = document.getElementById("messages");
-  msgEl.innerHTML = d.data.messages.map(m => renderMessage(m)).join("");
+  msgEl.innerHTML = (d.data?.messages || []).map(m => renderMessage(m)).join("");
   msgEl.scrollTop = msgEl.scrollHeight;
-
-  document.getElementById("chatInput").focus();
+  loadSessions();
 }
 
 function renderMessage(m) {
-  let html = `<div class="msg ${m.role}">${formatText(m.content)}`;
-  if (m.role === "assistant" && m.used_tools) {
+  let content = m.content || "";
+  // Simple markdown-like rendering
+  content = content.replace(/```json\n([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+  content = content.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+  content = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  content = content.replace(/\n/g, '<br>');
+
+  let tools = "";
+  if (m.tool_calls) {
     try {
-      const tools = JSON.parse(m.used_tools);
-      if (tools.length > 0) {
-        html += `<div class="tools-used">🔧 ${tools.map(t=>`<span>${t}</span>`).join(" ")}</div>`;
+      const tc = JSON.parse(m.tool_calls);
+      if (tc.length > 0) {
+        tools = `<div class="tools-used">Tool'lar: ${tc.map(t => `<span>🔧 ${t}</span>`).join("")}</div>`;
       }
-    } catch(e) {}
+    } catch {}
   }
-  html += "</div>";
-  return html;
+  return `<div class="msg ${m.role}">${content}${tools}</div>`;
 }
 
-function formatText(text) {
-  return text
-    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
-    .replace(/\*\*(.*?)\*\*/g,"<strong>$1</strong>")
-    .replace(/\n/g,"<br>");
-}
-
-// ── CHAT ──
 async function sendMessage() {
   const input = document.getElementById("chatInput");
   const msg = input.value.trim();
-  if (!msg) return;
-
-  if (!state.currentSession) {
-    await newSession();
-    // Small delay for session creation
-    await new Promise(r => setTimeout(r, 200));
-  }
-
+  if (!msg || !CURRENT_SESSION) return;
   input.value = "";
+
   const msgEl = document.getElementById("messages");
-  msgEl.innerHTML += `<div class="msg user">${formatText(msg)}</div>`;
-  msgEl.innerHTML += `<div class="typing" id="typingIndicator">🤔 Düşünüyor...</div>`;
+  msgEl.innerHTML += renderMessage({ role: "user", content: msg });
   msgEl.scrollTop = msgEl.scrollHeight;
 
   document.getElementById("sendBtn").disabled = true;
 
   try {
-    const d = await apiFetch("/api/ai/chat", {
-      method: "POST",
-      body: JSON.stringify({ session_id: state.currentSession, message: msg })
+    const r = await fetch(API + "/api/ai/chat", {
+      method: "POST", headers: { Authorization: "Bearer " + TOKEN, "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: CURRENT_SESSION, message: msg })
     });
-
-    const typing = document.getElementById("typingIndicator");
-    if (typing) typing.remove();
-
+    const d = await r.json();
     if (d.ok) {
-      msgEl.innerHTML += renderMessage({ role:"assistant", content: d.data.assistant_message, used_tools: JSON.stringify(d.data.used_tools) });
+      msgEl.innerHTML += renderMessage({
+        role: "assistant",
+        content: d.data.assistant_message,
+        tool_calls: JSON.stringify(d.data.used_tools || [])
+      });
     } else {
-      msgEl.innerHTML += `<div class="msg assistant" style="border-color:#ef4444">❌ ${d.error?.message || "Bir hata oluştu"}</div>`;
+      msgEl.innerHTML += renderMessage({ role: "assistant", content: "⚠️ Hata: " + (d.error?.message || "Bilinmeyen") });
     }
-  } catch(e) {
-    const typing = document.getElementById("typingIndicator");
-    if (typing) typing.remove();
-    msgEl.innerHTML += `<div class="msg assistant" style="border-color:#ef4444">❌ Bağlantı hatası</div>`;
+  } catch (e) {
+    msgEl.innerHTML += renderMessage({ role: "assistant", content: "⚠️ Bağlantı hatası: " + e.message });
   }
 
-  document.getElementById("sendBtn").disabled = false;
   msgEl.scrollTop = msgEl.scrollHeight;
-  loadSessions(); // Refresh sidebar
+  document.getElementById("sendBtn").disabled = false;
+  input.focus();
 }
 
-function quickChat(msg) {
-  document.getElementById("chatInput").value = msg;
-  sendMessage();
+async function loadTools() {
+  const r = await fetch(API + "/api/ai/tools", { headers: { Authorization: "Bearer " + TOKEN } });
+  const d = await r.json();
+  const tools = d.data?.available_tools || [];
+  const el = document.getElementById("toolList");
+  el.innerHTML = tools.map(t =>
+    `<button class="tool-btn" onclick="testTool('${t}')">${t}</button>`
+  ).join("");
 }
 
-// ── INIT ──
-(function init() {
-  const token = localStorage.getItem("edu_token");
-  const user = localStorage.getItem("edu_user");
-  const agent = localStorage.getItem("edu_agent");
-  if (token && user) {
-    state.token = token;
-    state.user = JSON.parse(user);
-    state.agentKey = agent;
-    showApp();
+function loadToolsGrid() {
+  const toolDescriptions = {
+    student: [
+      { name: "get_self_profile", desc: "Profilini görüntüle" },
+      { name: "get_self_exam_results", desc: "Sınav sonuçlarını çek" },
+      { name: "get_self_outcome_breakdown", desc: "Kazanım kırılımı" },
+      { name: "get_self_assignments", desc: "Ödevlerini listele" }
+    ],
+    teacher: [
+      { name: "list_teacher_classes", desc: "Sınıflarını listele" },
+      { name: "get_class_outcome_breakdown", desc: "Sınıf kazanım analizi" },
+      { name: "get_class_exam_results", desc: "Sınıf sınav sonuçları" }
+    ],
+    parent: [
+      { name: "list_my_children", desc: "Çocuklarını listele" },
+      { name: "get_child_exam_results", desc: "Çocuğun sınav sonuçları" },
+      { name: "get_child_attendance", desc: "Devamsızlık bilgisi" }
+    ]
+  };
+
+  const tools = toolDescriptions[USER?.role] || [];
+  document.getElementById("toolsGrid").innerHTML = tools.map(t =>
+    `<div class="tool-card" onclick="testTool('${t.name}')">
+      <h4>🔧 ${t.name}</h4>
+      <p>${t.desc}</p>
+    </div>`
+  ).join("");
+}
+
+async function testTool(toolName) {
+  const resultEl = document.getElementById("toolResult");
+  const contentEl = document.getElementById("toolResultContent");
+  resultEl.style.display = "block";
+  contentEl.textContent = "Yükleniyor...";
+
+  // Highlight active
+  document.querySelectorAll(".tool-btn").forEach(b => b.classList.remove("active"));
+  document.querySelectorAll(".tool-btn").forEach(b => { if (b.textContent === toolName) b.classList.add("active"); });
+
+  try {
+    const r = await fetch(API + "/api/ai/tools/" + toolName, {
+      method: "POST",
+      headers: { Authorization: "Bearer " + TOKEN, "Content-Type": "application/json" },
+      body: JSON.stringify({ input: {}, meta: { request_id: "test_" + Date.now() } })
+    });
+    const d = await r.json();
+    contentEl.textContent = JSON.stringify(d, null, 2);
+  } catch (e) {
+    contentEl.textContent = "Hata: " + e.message;
   }
-})();
+}
 </script>
 </body>
 </html>

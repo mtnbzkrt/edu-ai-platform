@@ -1,179 +1,210 @@
 const express = require("express");
 const cors = require("cors");
-const path = require("path");
+const jwt = require("jsonwebtoken");
 const { v4: uuidv4 } = require("uuid");
-const { generateToken, authMiddleware, requireRole, bcrypt } = require("./src/auth/auth");
-const connector = require("./src/school/connector/school-connector");
+const Database = require("better-sqlite3");
+const path = require("path");
+const bcrypt = require("bcryptjs");
 const { executeTool, getToolsForRole } = require("./src/ai/tools/tool-registry");
-const chatOrchestrator = require("./src/ai/orchestrator/chat-orchestrator");
-const db = require("./src/school/connector/db");
+const { buildAuthContext } = require("./src/ai/context/auth-context");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "../frontend")));
 
-// ── AUTH ──
+const JWT_SECRET = process.env.JWT_SECRET || "edu-ai-secret-key-2026";
+const PORT = process.env.PORT || 3080;
+
+// DB
+const db = new Database(path.join(__dirname, "src/data/school.db"));
+db.pragma("journal_mode = WAL");
+
+// ─── AUTH MIDDLEWARE ───
+function authMiddleware(req, res, next) {
+  const token = (req.headers.authorization || "").replace("Bearer ", "");
+  if (!token) return res.status(401).json({ ok: false, error: { code: "UNAUTHORIZED", message: "Token gerekli" } });
+  try {
+    req.user = jwt.verify(token, JWT_SECRET);
+    next();
+  } catch {
+    res.status(401).json({ ok: false, error: { code: "UNAUTHORIZED", message: "Geçersiz token" } });
+  }
+}
+
+// ─── AUTH ENDPOINTS ───
 app.post("/api/auth/login", (req, res) => {
   const { username, password } = req.body;
-  if (!username || !password) return res.status(400).json({ ok: false, error: { code: "INVALID_INPUT", message: "Username and password required" } });
-
-  const user = connector.getUserByUsername(username);
+  const user = db.prepare("SELECT * FROM users WHERE username = ?").get(username);
   if (!user || !bcrypt.compareSync(password, user.password_hash)) {
-    return res.status(401).json({ ok: false, error: { code: "UNAUTHORIZED", message: "Invalid credentials" } });
+    return res.status(401).json({ ok: false, error: { code: "UNAUTHORIZED", message: "Hatalı giriş" } });
   }
-
-  const actorId = connector.getActorId(user.id, user.role);
-  const permissions = connector.getPermissions(user.role);
-  const token = generateToken(user, actorId, permissions);
-
-  const agentKey = { student: "learner-agent", teacher: "teacher-agent", parent: "parent-agent", admin: "admin-agent" }[user.role];
-
-  res.json({
-    ok: true,
-    data: {
-      token,
-      user: { id: user.id, username: user.username, role: user.role, full_name: user.full_name },
-      actor_id: actorId,
-      agent_key: agentKey,
-      available_tools: getToolsForRole(user.role)
-    }
-  });
+  const token = jwt.sign({ user_id: user.id, username: user.username, role: user.role, full_name: user.full_name }, JWT_SECRET, { expiresIn: "24h" });
+  const agentKey = { student: "learner-agent", teacher: "teacher-agent", parent: "parent-agent" }[user.role] || "learner-agent";
+  res.json({ ok: true, data: { token, user: { id: user.id, username: user.username, role: user.role, full_name: user.full_name }, agent_key: agentKey } });
 });
 
-app.get("/api/auth/me", authMiddleware, (req, res) => {
-  res.json({ ok: true, data: req.auth });
-});
-
-// ── AI SESSIONS ──
+// ─── SESSION ENDPOINTS ───
 app.post("/api/ai/sessions", authMiddleware, (req, res) => {
-  const { agent_key, session_type, title } = req.body;
   const sessionId = "sess_" + uuidv4().slice(0, 8);
-  const agentKey = agent_key || { student: "learner-agent", teacher: "teacher-agent", parent: "parent-agent" }[req.auth.role] || "learner-agent";
+  const agentKey = { student: "learner-agent", teacher: "teacher-agent", parent: "parent-agent" }[req.user.role] || "learner-agent";
+  const title = req.body.title || "Yeni konuşma";
 
-  db.prepare(`INSERT INTO ai_sessions(id, user_id, agent_key, session_type, title) VALUES (?,?,?,?,?)`)
-    .run(sessionId, req.auth.user_id, agentKey, session_type || "chat", title || "Yeni Konuşma");
+  db.prepare(`INSERT INTO ai_sessions (id, user_id, agent_key, title, status, created_at, updated_at)
+    VALUES (?, ?, ?, ?, 'active', datetime('now'), datetime('now'))`
+  ).run(sessionId, req.user.user_id, agentKey, title);
 
-  res.json({
-    ok: true,
-    data: { session_id: sessionId, agent_key: agentKey, status: "active" }
-  });
+  res.json({ ok: true, data: { session_id: sessionId, agent_key: agentKey, title } });
 });
 
 app.get("/api/ai/sessions", authMiddleware, (req, res) => {
-  const sessions = db.prepare(`SELECT id, agent_key, session_type, title, status, last_summary, created_at, updated_at
-    FROM ai_sessions WHERE user_id = ? ORDER BY updated_at DESC`).all(req.auth.user_id);
-  res.json({ ok: true, data: sessions });
+  const sessions = db.prepare(
+    "SELECT * FROM ai_sessions WHERE user_id = ? ORDER BY updated_at DESC LIMIT 20"
+  ).all(req.user.user_id);
+  res.json({ ok: true, data: { sessions } });
 });
 
 app.get("/api/ai/sessions/:id", authMiddleware, (req, res) => {
-  const session = db.prepare(`SELECT * FROM ai_sessions WHERE id = ? AND user_id = ?`).get(req.params.id, req.auth.user_id);
-  if (!session) return res.status(404).json({ ok: false, error: { code: "NOT_FOUND", message: "Session not found" } });
+  const session = db.prepare("SELECT * FROM ai_sessions WHERE id = ? AND user_id = ?").get(req.params.id, req.user.user_id);
+  if (!session) return res.status(404).json({ ok: false, error: { code: "NOT_FOUND", message: "Session bulunamadı" } });
 
-  const messages = db.prepare(`SELECT id, role, content, used_tools, created_at FROM ai_messages WHERE session_id = ? ORDER BY created_at ASC`).all(session.id);
+  const messages = db.prepare("SELECT role, content, used_tools, created_at FROM ai_messages WHERE session_id = ? ORDER BY created_at ASC").all(session.id);
   res.json({ ok: true, data: { ...session, messages } });
 });
 
-// ── AI CHAT ──
+// ─── CHAT ENDPOINT ───
 app.post("/api/ai/chat", authMiddleware, async (req, res) => {
   const { session_id, message } = req.body;
-  if (!session_id || !message) return res.status(400).json({ ok: false, error: { code: "INVALID_INPUT", message: "session_id and message required" } });
+  if (!session_id || !message) {
+    return res.status(400).json({ ok: false, error: { code: "INVALID_INPUT", message: "session_id ve message gerekli" } });
+  }
 
-  const session = db.prepare(`SELECT * FROM ai_sessions WHERE id = ? AND user_id = ?`).get(session_id, req.auth.user_id);
-  if (!session) return res.status(404).json({ ok: false, error: { code: "NOT_FOUND", message: "Session not found" } });
+  const session = db.prepare("SELECT * FROM ai_sessions WHERE id = ? AND user_id = ?").get(session_id, req.user.user_id);
+  if (!session) return res.status(404).json({ ok: false, error: { code: "NOT_FOUND", message: "Session bulunamadı" } });
 
   // Save user message
-  db.prepare(`INSERT INTO ai_messages(id, session_id, role, content) VALUES (?,?,?,?)`)
-    .run("msg_" + uuidv4().slice(0, 8), session_id, "user", message);
+  db.prepare("INSERT INTO ai_messages (id, session_id, role, content, created_at) VALUES (?, ?, 'user', ?, datetime('now'))")
+    .run(uuidv4(), session_id, message);
+
+  // Build auth context
+  const authContext = buildAuthContext(req.user, session_id);
 
   // Get previous messages for context
-  const prevMessages = db.prepare(`SELECT role, content FROM ai_messages WHERE session_id = ? ORDER BY created_at ASC LIMIT 20`).all(session_id);
+  const prevMessages = db.prepare(
+    "SELECT role, content FROM ai_messages WHERE session_id = ? ORDER BY created_at ASC LIMIT 20"
+  ).all(session_id);
 
   // Process through orchestrator
-  const startTime = Date.now();
-  const result = await chatOrchestrator.processMessage(message, req.auth, {
-    session_id,
-    agent_key: session.agent_key,
-    previousMessages: prevMessages
-  });
-  const duration = Date.now() - startTime;
-
-  // Save assistant message
-  db.prepare(`INSERT INTO ai_messages(id, session_id, role, content, used_tools) VALUES (?,?,?,?,?)`)
-    .run("msg_" + uuidv4().slice(0, 8), session_id, "assistant", result.reply, JSON.stringify(result.usedTools));
-
-  // Update session
-  db.prepare(`UPDATE ai_sessions SET updated_at = datetime('now'), last_summary = ? WHERE id = ?`)
-    .run(message.slice(0, 100), session_id);
-
-  // Audit log
-  db.prepare(`INSERT INTO audit_log(id, request_id, session_id, user_id, role, agent, tool_name, duration_ms, school_id, success)
-    VALUES (?,?,?,?,?,?,?,?,?,?)`)
-    .run(uuidv4().slice(0, 8), uuidv4().slice(0, 8), session_id, req.auth.user_id, req.auth.role, session.agent_key,
-      result.usedTools.join(","), duration, req.auth.school_id, 1);
-
-  res.json({
-    ok: true,
-    data: {
-      session_id,
-      assistant_message: result.reply,
-      used_tools: result.usedTools,
-      duration_ms: duration
-    }
-  });
-});
-
-// ── TOOL ENDPOINTS ──
-app.post("/api/ai/tools/:toolName", authMiddleware, (req, res) => {
-  const { toolName } = req.params;
-  const input = req.body.input || {};
-  const requestId = uuidv4().slice(0, 8);
+  const orchestrator = require("./src/ai/orchestrator/chat-orchestrator");
   const startTime = Date.now();
 
   try {
-    const data = executeTool(toolName, input, req.auth);
+    const result = await orchestrator.processMessage(message, authContext, {
+      session_id,
+      agent_key: session.agent_key,
+      previousMessages: prevMessages
+    });
+
     const duration = Date.now() - startTime;
 
-    // Audit
-    db.prepare(`INSERT INTO audit_log(id, request_id, user_id, role, agent, tool_name, input_summary, duration_ms, school_id, success)
-      VALUES (?,?,?,?,?,?,?,?,?,?)`)
-      .run(uuidv4().slice(0, 8), requestId, req.auth.user_id, req.auth.role, req.body.meta?.agent || "direct",
-        toolName, JSON.stringify(input).slice(0, 200), duration, req.auth.school_id, 1);
+    // Save assistant message
+    db.prepare("INSERT INTO ai_messages (id, session_id, role, content, used_tools, created_at) VALUES (?, ?, 'assistant', ?, ?, datetime('now'))")
+      .run(uuidv4(), session_id, result.reply, JSON.stringify(result.usedTools || []));
 
-    res.json({ ok: true, data, meta: { source: "school_connector", fetched_at: new Date().toISOString(), request_id: requestId } });
-  } catch (e) {
-    res.status(e.code === "ACCESS_DENIED" || e.code === "FORBIDDEN" ? 403 : 400).json({
-      ok: false, error: { code: e.code || "ERROR", message: e.message || "Tool execution failed" }, meta: { request_id: requestId }
+    // Update session
+    db.prepare("UPDATE ai_sessions SET updated_at = datetime('now') WHERE id = ?").run(session_id);
+
+    res.json({
+      ok: true,
+      data: {
+        session_id,
+        assistant_message: result.reply,
+        used_tools: result.usedTools || [],
+        duration_ms: duration
+      }
+    });
+  } catch (err) {
+    console.error("Chat error:", err);
+    res.status(500).json({ ok: false, error: { code: "INTERNAL_ERROR", message: err.message } });
+  }
+});
+
+// ─── TOOL API ENDPOINTS (POST /api/ai/tools/*) ───
+// These are the endpoints that agents call directly
+
+app.post("/api/ai/tools/:toolName", authMiddleware, (req, res) => {
+  const { toolName } = req.params;
+  const { input = {}, meta = {} } = req.body;
+  const requestId = meta.request_id || uuidv4();
+
+  // Build auth context
+  const authContext = buildAuthContext(req.user, meta.session_id);
+
+  try {
+    const result = executeTool(toolName.replace(/-/g, "_"), input, authContext);
+    res.json({
+      ok: true,
+      data: result,
+      meta: {
+        request_id: requestId,
+        source: "school_connector",
+        fetched_at: new Date().toISOString()
+      }
+    });
+  } catch (err) {
+    const status = err.code === "FORBIDDEN" ? 403 : err.code === "ACCESS_DENIED" ? 403 : err.code === "NOT_FOUND" ? 404 : 400;
+    res.status(status).json({
+      ok: false,
+      error: { code: err.code || "ERROR", message: err.message || "Bilinmeyen hata" },
+      meta: { request_id: requestId }
     });
   }
 });
 
-// ── ADMIN ENDPOINTS ──
-app.get("/api/admin/stats", authMiddleware, requireRole("admin"), (req, res) => {
+// Also support kebab-case tool names
+app.post("/api/ai/tools/get-self-profile", authMiddleware, (req, res) => {
+  req.params.toolName = "get_self_profile";
+  return handleToolCall(req, res);
+});
+
+function handleToolCall(req, res) {
+  const toolName = req.params.toolName.replace(/-/g, "_");
+  const { input = {}, meta = {} } = req.body;
+  const requestId = meta.request_id || uuidv4();
+  const authContext = buildAuthContext(req.user, meta.session_id);
+
+  try {
+    const result = executeTool(toolName, input, authContext);
+    res.json({ ok: true, data: result, meta: { request_id: requestId, source: "school_connector", fetched_at: new Date().toISOString() } });
+  } catch (err) {
+    res.status(err.code === "FORBIDDEN" || err.code === "ACCESS_DENIED" ? 403 : 400).json({
+      ok: false, error: { code: err.code || "ERROR", message: err.message }, meta: { request_id: requestId }
+    });
+  }
+}
+
+// ─── ADMIN ENDPOINTS ───
+app.get("/api/admin/stats", authMiddleware, (req, res) => {
+  if (req.user.role !== "admin") return res.status(403).json({ ok: false, error: { code: "FORBIDDEN" } });
   const stats = {
     users: db.prepare("SELECT COUNT(*) as c FROM users").get().c,
-    students: db.prepare("SELECT COUNT(*) as c FROM students").get().c,
-    teachers: db.prepare("SELECT COUNT(*) as c FROM teachers").get().c,
-    parents: db.prepare("SELECT COUNT(*) as c FROM parents").get().c,
     sessions: db.prepare("SELECT COUNT(*) as c FROM ai_sessions").get().c,
     messages: db.prepare("SELECT COUNT(*) as c FROM ai_messages").get().c,
-    tool_calls: db.prepare("SELECT COUNT(*) as c FROM audit_log").get().c,
+    tools_called: db.prepare("SELECT COUNT(*) as c FROM audit_log WHERE action LIKE 'tool:%'").get().c
   };
   res.json({ ok: true, data: stats });
 });
 
-app.get("/api/admin/audit", authMiddleware, requireRole("admin"), (req, res) => {
-  const limit = Math.min(parseInt(req.query.limit) || 50, 100);
-  const logs = db.prepare("SELECT * FROM audit_log ORDER BY created_at DESC LIMIT ?").all(limit);
-  res.json({ ok: true, data: logs });
+// ─── AVAILABLE TOOLS ENDPOINT ───
+app.get("/api/ai/tools", authMiddleware, (req, res) => {
+  const tools = getToolsForRole(req.user.role);
+  res.json({ ok: true, data: { role: req.user.role, available_tools: tools } });
 });
 
-// ── SPA FALLBACK ──
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "../frontend/index.html"));
-});
-
-const PORT = process.env.PORT || 3080;
+// ─── START ───
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🎓 Eğitim AI Platform — http://0.0.0.0:${PORT}`);
+  console.log(`🎓 Eğitim AI Platform — Tool API + Session API`);
+  console.log(`   http://0.0.0.0:${PORT}`);
+  console.log(`   Tool API: POST /api/ai/tools/:toolName`);
+  console.log(`   Session API: POST /api/ai/sessions, POST /api/ai/chat`);
 });
