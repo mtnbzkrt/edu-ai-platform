@@ -1,7 +1,10 @@
 FROM node:22-bookworm-slim
+RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-RUN npm install express http-proxy-middleware
+COPY backend/package*.json ./
+RUN npm ci --omit=dev
+COPY backend/ ./
 COPY frontend/ ./frontend/
-COPY proxy.js ./proxy.js
+ENV PORT=3080
 EXPOSE 3080
-CMD ["node", "proxy.js"]
+CMD ["node", "server.js"]
