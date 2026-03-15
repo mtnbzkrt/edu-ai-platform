@@ -5,6 +5,7 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 COPY backend/ ./backend/
 COPY frontend/ ./frontend/
+RUN node backend/src/school/seed/seed.js
 ENV PORT=3080
 EXPOSE 3080
 CMD ["node", "backend/server.js"]
