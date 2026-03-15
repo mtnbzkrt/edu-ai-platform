@@ -13,11 +13,11 @@ class ChatOrchestrator {
     const toolData = this._prefetchData(message, authContext, usedTools);
 
     // Load user memory
-    const memoryContext = UserMemory.buildContext(authContext.userId);
+    const memoryContext = UserMemory.buildContext(authContext.user_id);
 
     // Build messages with memory + tool data + history
     const messages = this._buildMessages(message, authContext, toolData, usedTools, previousMessages, memoryContext);
-    const sessionKey = `edu:${authContext.role}:${authContext.userId}:${agentKey}`;
+    const sessionKey = `edu:${authContext.role}:${authContext.user_id}:${agentKey}`;
 
     let reply;
     try {
@@ -28,9 +28,9 @@ class ChatOrchestrator {
     }
 
     // Parse and save any memory commands from agent response
-    const { cleanResponse, saved } = UserMemory.parseAndSave(authContext.userId, reply);
+    const { cleanResponse, saved } = UserMemory.parseAndSave(authContext.user_id, reply);
     if (saved.length > 0) {
-      console.log(`Memory saved for user ${authContext.userId}:`, saved.map(s => `${s.category}:${s.key}`).join(", "));
+      console.log(`Memory saved for user ${authContext.user_id}:`, saved.map(s => `${s.category}:${s.key}`).join(", "));
     }
 
     return { reply: cleanResponse, usedTools };
