@@ -97,13 +97,18 @@ app.post("/api/ai/chat", authMiddleware, async (req, res) => {
   // Process through orchestrator
   const orchestrator = require("./src/ai/orchestrator/chat-orchestrator");
   const startTime = Date.now();
-
   try {
     const result = await orchestrator.processMessage(message, authContext, {
       session_id,
-      agent_key: session.agent_key,
-      previousMessages: prevMessages
-    });
+      agent_key: session.agent_key
+    }, prevMessages);
+
+
+
+
+
+
+
 
     const duration = Date.now() - startTime;
 

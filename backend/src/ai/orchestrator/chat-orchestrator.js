@@ -1,21 +1,25 @@
 const http = require("http");
 const { executeTool } = require("../tools/tool-registry");
 
-// Docker container reaches gateway via proxy on docker0 bridge
 const GATEWAY_HOST = process.env.OPENCLAW_GATEWAY_HOST || "10.0.0.1";
 const GATEWAY_PORT = process.env.OPENCLAW_GATEWAY_PORT || 18790;
 const GATEWAY_TOKEN = process.env.OPENCLAW_GATEWAY_TOKEN || "bc433d5343886a5a34602fa85b0c91b6720e9b9f12dc80a0";
 
 class ChatOrchestrator {
-  async processMessage(message, authContext, sessionContext) {
+  async processMessage(message, authContext, sessionContext, previousMessages) {
     const agentKey = sessionContext.agent_key || this._getAgentKey(authContext.role);
     const usedTools = [];
     const toolData = this._prefetchData(message, authContext, usedTools);
-    const agentMessage = this._buildAgentMessage(message, authContext, toolData, usedTools);
+
+    // Build OpenAI messages array with history + current context
+    const messages = this._buildMessages(message, authContext, toolData, usedTools, previousMessages);
+
+    // Per-user session key so each user has their own agent memory
+    const sessionKey = `edu:${authContext.role}:${authContext.userId}:${agentKey}`;
 
     let reply;
     try {
-      reply = await this._callAgentHTTP(agentKey, agentMessage);
+      reply = await this._callAgentHTTP(agentKey, sessionKey, messages);
     } catch (err) {
       console.error("Agent HTTP error:", err.message);
       reply = this._localFallback(message, authContext, toolData, usedTools);
@@ -30,7 +34,7 @@ class ChatOrchestrator {
     try {
       if (auth.role === "student") {
         r.profile = executeTool("get_self_profile", {}, auth); usedTools.push("get_self_profile");
-        if (msg.match(/sınav|sonuç|eksik|zayıf|performans|not|konu|tekrar/)) {
+        if (msg.match(/sınav|sonuç|eksik|zayıf|performans|not|konu|tekrar|puan|başarı/)) {
           r.exams = executeTool("get_self_exam_results", { limit: 5 }, auth); usedTools.push("get_self_exam_results");
           if (r.exams?.items?.length > 0) { r.outcomes = executeTool("get_self_outcome_breakdown", { exam_ids: r.exams.items.map(i => i.exam_id) }, auth); usedTools.push("get_self_outcome_breakdown"); }
         }
@@ -60,21 +64,43 @@ class ChatOrchestrator {
     return r;
   }
 
-  _buildAgentMessage(userMessage, auth, toolData, usedTools) {
-    let ctx = `[SISTEM BAGLAMI - yorumlayarak cevap ver, ham veriyi gosterme]\nRol: ${auth.role}\n`;
-    for (const [k, v] of Object.entries(toolData)) {
-      ctx += `--- ${k} ---\n${JSON.stringify(v, null, 2).slice(0, 1200)}\n`;
+  _buildMessages(userMessage, auth, toolData, usedTools, previousMessages) {
+    const messages = [];
+
+    // System message with data context
+    let sys = `Sen bir egitim AI asistanisin. Kullanici rolu: ${auth.role}.\n`;
+    sys += `Turkce konusuyorsun. Pedagojik dil kullan, cesaretlendirici ol.\n`;
+    sys += `Ham veriyi gosterme, yorumlayarak acikla.\n`;
+    
+    if (Object.keys(toolData).length > 0) {
+      sys += `\nOkul sisteminden alinan guncel veriler:\n`;
+      for (const [k, v] of Object.entries(toolData)) {
+        sys += `--- ${k} ---\n${JSON.stringify(v, null, 2).slice(0, 1500)}\n`;
+      }
     }
-    if (usedTools.length) ctx += `Kullanilan toollar: ${usedTools.join(", ")}\n`;
-    ctx += `---\nKullanicinin mesaji: ${userMessage}`;
-    return ctx;
+
+    messages.push({ role: "system", content: sys });
+
+    // Add previous conversation history (last 10 messages for context)
+    if (previousMessages?.length > 0) {
+      const recent = previousMessages.slice(-10);
+      for (const msg of recent) {
+        messages.push({ role: msg.role, content: msg.content });
+      }
+    }
+
+    // Current user message
+    messages.push({ role: "user", content: userMessage });
+
+    return messages;
   }
 
-  _callAgentHTTP(agentKey, message) {
+  _callAgentHTTP(agentKey, sessionKey, messages) {
     return new Promise((resolve, reject) => {
       const body = JSON.stringify({
         model: "openclaw",
-        messages: [{ role: "user", content: message }]
+        messages,
+        user: sessionKey  // This creates per-user stable sessions in Gateway
       });
       const req = http.request({
         hostname: GATEWAY_HOST, port: GATEWAY_PORT,
@@ -84,6 +110,7 @@ class ChatOrchestrator {
           "Content-Type": "application/json",
           "Authorization": "Bearer " + GATEWAY_TOKEN,
           "x-openclaw-agent-id": agentKey,
+          "x-openclaw-session-key": sessionKey,
           "Content-Length": Buffer.byteLength(body)
         },
         timeout: 90000
@@ -95,7 +122,7 @@ class ChatOrchestrator {
             const d = JSON.parse(data);
             const content = d.choices?.[0]?.message?.content;
             if (content) resolve(content);
-            else reject(new Error("No content in response"));
+            else reject(new Error("No content: " + data.slice(0, 200)));
           } catch (e) { reject(new Error("Parse error: " + data.slice(0, 100))); }
         });
       });
