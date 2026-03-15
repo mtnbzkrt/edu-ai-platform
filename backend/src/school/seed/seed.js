@@ -166,10 +166,21 @@ db.exec(`
     error_code TEXT,
     created_at TEXT DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS user_memory (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    category TEXT NOT NULL DEFAULT 'general',
+    key TEXT NOT NULL,
+    value TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, category, key)
+  );
 `);
 
 // ── CLEAR ──
-const tables = ["audit_log","ai_messages","ai_sessions","attendance","assignment_submissions","assignments","exam_outcome_results","exam_results","exams","class_students","classes","parent_children","parents","teachers","students","outcomes","users"];
+const tables = ["user_memory","audit_log","ai_messages","ai_sessions","attendance","assignment_submissions","assignments","exam_outcome_results","exam_results","exams","class_students","classes","parent_children","parents","teachers","students","outcomes","users"];
 tables.forEach(t => db.exec(`DELETE FROM ${t}`));
 
 // ── HELPERS ──

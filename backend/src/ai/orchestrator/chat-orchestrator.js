@@ -1,5 +1,6 @@
 const http = require("http");
 const { executeTool } = require("../tools/tool-registry");
+const UserMemory = require("../memory/user-memory");
 
 const GATEWAY_HOST = process.env.OPENCLAW_GATEWAY_HOST || "10.0.0.1";
 const GATEWAY_PORT = process.env.OPENCLAW_GATEWAY_PORT || 18790;
@@ -11,10 +12,11 @@ class ChatOrchestrator {
     const usedTools = [];
     const toolData = this._prefetchData(message, authContext, usedTools);
 
-    // Build OpenAI messages array with history + current context
-    const messages = this._buildMessages(message, authContext, toolData, usedTools, previousMessages);
+    // Load user memory
+    const memoryContext = UserMemory.buildContext(authContext.userId);
 
-    // Per-user session key so each user has their own agent memory
+    // Build messages with memory + tool data + history
+    const messages = this._buildMessages(message, authContext, toolData, usedTools, previousMessages, memoryContext);
     const sessionKey = `edu:${authContext.role}:${authContext.userId}:${agentKey}`;
 
     let reply;
@@ -25,7 +27,13 @@ class ChatOrchestrator {
       reply = this._localFallback(message, authContext, toolData, usedTools);
     }
 
-    return { reply, usedTools };
+    // Parse and save any memory commands from agent response
+    const { cleanResponse, saved } = UserMemory.parseAndSave(authContext.userId, reply);
+    if (saved.length > 0) {
+      console.log(`Memory saved for user ${authContext.userId}:`, saved.map(s => `${s.category}:${s.key}`).join(", "));
+    }
+
+    return { reply: cleanResponse, usedTools };
   }
 
   _prefetchData(message, auth, usedTools) {
@@ -34,7 +42,7 @@ class ChatOrchestrator {
     try {
       if (auth.role === "student") {
         r.profile = executeTool("get_self_profile", {}, auth); usedTools.push("get_self_profile");
-        if (msg.match(/sınav|sonuç|eksik|zayıf|performans|not|konu|tekrar|puan|başarı/)) {
+        if (msg.match(/sınav|sonuç|eksik|zayıf|performans|not|konu|tekrar|puan|başarı|durum/)) {
           r.exams = executeTool("get_self_exam_results", { limit: 5 }, auth); usedTools.push("get_self_exam_results");
           if (r.exams?.items?.length > 0) { r.outcomes = executeTool("get_self_outcome_breakdown", { exam_ids: r.exams.items.map(i => i.exam_id) }, auth); usedTools.push("get_self_outcome_breakdown"); }
         }
@@ -64,14 +72,31 @@ class ChatOrchestrator {
     return r;
   }
 
-  _buildMessages(userMessage, auth, toolData, usedTools, previousMessages) {
+  _buildMessages(userMessage, auth, toolData, usedTools, previousMessages, memoryContext) {
     const messages = [];
 
-    // System message with data context
     let sys = `Sen bir egitim AI asistanisin. Kullanici rolu: ${auth.role}.\n`;
     sys += `Turkce konusuyorsun. Pedagojik dil kullan, cesaretlendirici ol.\n`;
-    sys += `Ham veriyi gosterme, yorumlayarak acikla.\n`;
-    
+    sys += `Ham veriyi gosterme, yorumlayarak acikla.\n\n`;
+
+    // Memory instructions
+    sys += `HAFIZA SISTEMI:\n`;
+    sys += `Kullanici hakkinda onemli bilgiler ogrendiginde (tercihler, ogrenme stili, hedefler, kisilik) bunlari kaydetmek icin yanitinin SONUNA su formatta etiket ekle:\n`;
+    sys += `[HAFIZA_KAYDET:kategori:anahtar:deger]\n`;
+    sys += `Kategoriler: preferences, learning_style, strengths, weaknesses, goals, notes, personality\n`;
+    sys += `Ornekler:\n`;
+    sys += `[HAFIZA_KAYDET:learning_style:anlatim_tercihi:gorsel ogrenmeyi tercih ediyor]\n`;
+    sys += `[HAFIZA_KAYDET:preferences:ders_sirasi:once matematik sonra fen istiyor]\n`;
+    sys += `[HAFIZA_KAYDET:personality:iletisim:utangac, cesaretlendirme lazim]\n`;
+    sys += `[HAFIZA_KAYDET:goals:hedef:donem sonu matematik 80 uzeri]\n`;
+    sys += `Bu etiketler kullaniciya gosterilmez, sadece hafizaya kaydedilir.\n`;
+
+    // Include existing memories
+    if (memoryContext) {
+      sys += memoryContext;
+    }
+
+    // Tool data
     if (Object.keys(toolData).length > 0) {
       sys += `\nOkul sisteminden alinan guncel veriler:\n`;
       for (const [k, v] of Object.entries(toolData)) {
@@ -81,31 +106,23 @@ class ChatOrchestrator {
 
     messages.push({ role: "system", content: sys });
 
-    // Add previous conversation history (last 10 messages for context)
+    // Previous messages
     if (previousMessages?.length > 0) {
-      const recent = previousMessages.slice(-10);
-      for (const msg of recent) {
+      for (const msg of previousMessages.slice(-10)) {
         messages.push({ role: msg.role, content: msg.content });
       }
     }
 
-    // Current user message
     messages.push({ role: "user", content: userMessage });
-
     return messages;
   }
 
   _callAgentHTTP(agentKey, sessionKey, messages) {
     return new Promise((resolve, reject) => {
-      const body = JSON.stringify({
-        model: "openclaw",
-        messages,
-        user: sessionKey  // This creates per-user stable sessions in Gateway
-      });
+      const body = JSON.stringify({ model: "openclaw", messages, user: sessionKey });
       const req = http.request({
         hostname: GATEWAY_HOST, port: GATEWAY_PORT,
-        path: "/v1/chat/completions",
-        method: "POST",
+        path: "/v1/chat/completions", method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer " + GATEWAY_TOKEN,
@@ -123,7 +140,7 @@ class ChatOrchestrator {
             const content = d.choices?.[0]?.message?.content;
             if (content) resolve(content);
             else reject(new Error("No content: " + data.slice(0, 200)));
-          } catch (e) { reject(new Error("Parse error: " + data.slice(0, 100))); }
+          } catch (e) { reject(new Error("Parse: " + data.slice(0, 100))); }
         });
       });
       req.on("error", reject);
@@ -133,29 +150,16 @@ class ChatOrchestrator {
     });
   }
 
-  _localFallback(message, auth, toolData, usedTools) {
-    const name = toolData.profile?.full_name || toolData.children?.children?.[0]?.full_name || "";
-    let r = "";
-    if (auth.role === "student") {
-      r = `Merhaba${name ? " " + name.split(" ")[0] : ""}! 👋\n\n`;
-      if (toolData.outcomes?.outcomes?.length > 0) {
-        const weak = toolData.outcomes.outcomes.filter(o => o.success_rate < 0.5);
-        const mid = toolData.outcomes.outcomes.filter(o => o.success_rate >= 0.5 && o.success_rate < 0.75);
-        const strong = toolData.outcomes.outcomes.filter(o => o.success_rate >= 0.75);
-        if (weak.length) { r += `🔴 **Öncelikli konular:**\n`; weak.forEach((o,i) => r += `${i+1}. **${o.outcome_name}** — %${Math.round(o.success_rate*100)}\n`); r += "\n"; }
-        if (mid.length) { r += `🟡 **Pekiştirmen gerekenler:**\n`; mid.forEach((o,i) => r += `${i+1}. **${o.outcome_name}** — %${Math.round(o.success_rate*100)}\n`); r += "\n"; }
-        if (strong.length) { r += `🟢 **İyi olduğun konular:**\n`; strong.forEach(o => r += `- ${o.outcome_name} ✓\n`); r += "\n"; }
-      }
-      if (toolData.exams?.items?.length) { r += `📊 **Son sınavların:**\n`; toolData.exams.items.forEach(e => r += `- ${e.exam_name}: **${e.score}** (${e.exam_date})\n`); r += "\n"; }
-      r += "💪 Bir konuyu anlatmamı veya çalışma planı hazırlamamı ister misin?\n";
-    } else if (auth.role === "teacher") {
-      r = `📋 **Sınıf Özeti**\n\n`;
-      if (toolData.outcomes?.outcomes?.length) { toolData.outcomes.outcomes.forEach(o => { const p = Math.round(o.average_success_rate*100); r += `${p<50?"🔴":p<75?"🟡":"🟢"} ${o.outcome_name}: %${p}\n`; }); }
-    } else if (auth.role === "parent") {
-      r = `👋 Merhaba!\n\n`;
-      if (toolData.exams?.items?.length) { r += `📊 **Sınav sonuçları:**\n`; toolData.exams.items.forEach(e => r += `- ${e.exam_name}: **${e.score}** (${e.exam_date})\n`); r += "\n"; }
-      if (toolData.attendance) r += `📅 **Devamsızlık:** ${toolData.attendance.summary.absent_days} gün\n`;
+  _localFallback(message, auth, toolData) {
+    const name = toolData.profile?.full_name || "";
+    let r = `Merhaba${name ? " " + name.split(" ")[0] : ""}! 👋\n\n`;
+    if (toolData.outcomes?.outcomes?.length) {
+      const weak = toolData.outcomes.outcomes.filter(o => o.success_rate < 0.5);
+      const mid = toolData.outcomes.outcomes.filter(o => o.success_rate >= 0.5 && o.success_rate < 0.75);
+      if (weak.length) { r += `🔴 **Öncelikli konular:**\n`; weak.forEach((o,i) => r += `${i+1}. **${o.outcome_name}** — %${Math.round(o.success_rate*100)}\n`); r += "\n"; }
+      if (mid.length) { r += `🟡 **Pekiştirmen gerekenler:**\n`; mid.forEach((o,i) => r += `${i+1}. **${o.outcome_name}** — %${Math.round(o.success_rate*100)}\n`); r += "\n"; }
     }
+    if (toolData.exams?.items?.length) { r += `📊 **Son sınavların:**\n`; toolData.exams.items.forEach(e => r += `- ${e.exam_name}: **${e.score}** (${e.exam_date})\n`); }
     return r || "Merhaba! Size nasıl yardımcı olabilirim?";
   }
 

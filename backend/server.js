@@ -72,6 +72,19 @@ app.get("/api/ai/sessions/:id", authMiddleware, (req, res) => {
   res.json({ ok: true, data: { ...session, messages } });
 });
 
+// ─── MEMORY ENDPOINTS ───
+app.get("/api/ai/memory", authMiddleware, (req, res) => {
+  const UserMemory = require("./src/ai/memory/user-memory");
+  const memories = UserMemory.getAll(req.user.user_id);
+  res.json({ ok: true, data: { memories } });
+});
+
+app.get("/api/ai/memory/:category", authMiddleware, (req, res) => {
+  const UserMemory = require("./src/ai/memory/user-memory");
+  const memories = UserMemory.getByCategory(req.user.user_id, req.params.category);
+  res.json({ ok: true, data: { memories } });
+});
+
 // ─── CHAT ENDPOINT ───
 app.post("/api/ai/chat", authMiddleware, async (req, res) => {
   const { session_id, message } = req.body;
