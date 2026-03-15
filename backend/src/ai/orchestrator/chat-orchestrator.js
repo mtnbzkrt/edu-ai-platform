@@ -7,33 +7,141 @@ const GATEWAY_PORT = process.env.OPENCLAW_GATEWAY_PORT || 18790;
 const GATEWAY_TOKEN = process.env.OPENCLAW_GATEWAY_TOKEN || "bc433d5343886a5a34602fa85b0c91b6720e9b9f12dc80a0";
 
 class ChatOrchestrator {
+  // Non-streaming (kept for fallback)
   async processMessage(message, authContext, sessionContext, previousMessages) {
     const agentKey = sessionContext.agent_key || this._getAgentKey(authContext.role);
     const usedTools = [];
     const toolData = this._prefetchData(message, authContext, usedTools);
-
-    // Load user memory
     const memoryContext = UserMemory.buildContext(authContext.user_id);
-
-    // Build messages with memory + tool data + history
     const messages = this._buildMessages(message, authContext, toolData, usedTools, previousMessages, memoryContext);
     const sessionKey = `edu:${authContext.role}:${authContext.user_id}:${agentKey}`;
 
     let reply;
     try {
-      reply = await this._callAgentHTTP(agentKey, sessionKey, messages);
+      reply = await this._callAgentHTTP(agentKey, sessionKey, messages, false);
     } catch (err) {
-      console.error("Agent HTTP error:", err.message);
-      reply = this._localFallback(message, authContext, toolData, usedTools);
+      console.error("Agent error:", err.message);
+      reply = this._localFallback(authContext, toolData);
     }
 
-    // Parse and save any memory commands from agent response
     const { cleanResponse, saved } = UserMemory.parseAndSave(authContext.user_id, reply);
-    if (saved.length > 0) {
-      console.log(`Memory saved for user ${authContext.user_id}:`, saved.map(s => `${s.category}:${s.key}`).join(", "));
-    }
-
+    if (saved.length) console.log(`Memory saved for user ${authContext.user_id}:`, saved.map(s => `${s.category}:${s.key}`).join(", "));
     return { reply: cleanResponse, usedTools };
+  }
+
+  // Streaming version
+  async processMessageStream(message, authContext, sessionContext, previousMessages, res) {
+    const agentKey = sessionContext.agent_key || this._getAgentKey(authContext.role);
+    const usedTools = [];
+    const toolData = this._prefetchData(message, authContext, usedTools);
+    const memoryContext = UserMemory.buildContext(authContext.user_id);
+    const messages = this._buildMessages(message, authContext, toolData, usedTools, previousMessages, memoryContext);
+    const sessionKey = `edu:${authContext.role}:${authContext.user_id}:${agentKey}`;
+
+    // Send tools info first
+    res.write(`data: ${JSON.stringify({ type: "tools", tools: usedTools })}\n\n`);
+
+    return new Promise((resolve, reject) => {
+      const body = JSON.stringify({ model: "openclaw", messages, user: sessionKey, stream: true });
+      let fullText = "";
+
+      const req = http.request({
+        hostname: GATEWAY_HOST, port: GATEWAY_PORT,
+        path: "/v1/chat/completions", method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + GATEWAY_TOKEN,
+          "x-openclaw-agent-id": agentKey,
+          "x-openclaw-session-key": sessionKey,
+          "Content-Length": Buffer.byteLength(body)
+        },
+        timeout: 120000
+      }, proxyRes => {
+        let buffer = "";
+
+        proxyRes.on("data", chunk => {
+          buffer += chunk.toString();
+          const lines = buffer.split("\n");
+          buffer = lines.pop(); // Keep incomplete line
+
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            const data = line.slice(6).trim();
+            if (data === "[DONE]") {
+              // Process memory tags before finishing
+              const { cleanResponse, saved } = UserMemory.parseAndSave(authContext.user_id, fullText);
+              if (saved.length) console.log(`Memory saved for user ${authContext.user_id}:`, saved.map(s => `${s.category}:${s.key}`).join(", "));
+              res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
+              res.end();
+              resolve({ reply: cleanResponse, usedTools });
+              return;
+            }
+            try {
+              const parsed = JSON.parse(data);
+              const delta = parsed.choices?.[0]?.delta?.content;
+              if (delta) {
+                fullText += delta;
+                // Don't stream memory tags to client
+                if (!delta.includes("[HAFIZA_KAYDET")) {
+                  res.write(`data: ${JSON.stringify({ type: "chunk", text: delta })}\n\n`);
+                }
+              }
+            } catch {}
+          }
+        });
+
+        proxyRes.on("end", () => {
+          if (!fullText) {
+            // Fallback if streaming failed
+            const fb = this._localFallback(authContext, toolData);
+            res.write(`data: ${JSON.stringify({ type: "chunk", text: fb })}\n\n`);
+            res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
+            res.end();
+            resolve({ reply: fb, usedTools });
+          }
+        });
+
+        proxyRes.on("error", err => {
+          const fb = this._localFallback(authContext, toolData);
+          res.write(`data: ${JSON.stringify({ type: "chunk", text: fb })}\n\n`);
+          res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
+          res.end();
+          resolve({ reply: fb, usedTools });
+        });
+      });
+
+      req.on("error", err => {
+        const fb = this._localFallback(authContext, toolData);
+        res.write(`data: ${JSON.stringify({ type: "chunk", text: fb })}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
+        res.end();
+        resolve({ reply: fb, usedTools });
+      });
+
+      req.on("timeout", () => { req.destroy(); });
+      req.write(body);
+      req.end();
+    });
+  }
+
+  _callAgentHTTP(agentKey, sessionKey, messages) {
+    return new Promise((resolve, reject) => {
+      const body = JSON.stringify({ model: "openclaw", messages, user: sessionKey });
+      const req = http.request({
+        hostname: GATEWAY_HOST, port: GATEWAY_PORT,
+        path: "/v1/chat/completions", method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + GATEWAY_TOKEN, "x-openclaw-agent-id": agentKey, "x-openclaw-session-key": sessionKey, "Content-Length": Buffer.byteLength(body) },
+        timeout: 90000
+      }, res => {
+        let data = "";
+        res.on("data", c => data += c);
+        res.on("end", () => { try { const d = JSON.parse(data); resolve(d.choices?.[0]?.message?.content || ""); } catch (e) { reject(e); } });
+      });
+      req.on("error", reject);
+      req.on("timeout", () => { req.destroy(); reject(new Error("Timeout")); });
+      req.write(body);
+      req.end();
+    });
   }
 
   _prefetchData(message, auth, usedTools) {
@@ -74,93 +182,22 @@ class ChatOrchestrator {
 
   _buildMessages(userMessage, auth, toolData, usedTools, previousMessages, memoryContext) {
     const messages = [];
-
-    let sys = `Sen bir egitim AI asistanisin. Kullanici rolu: ${auth.role}.\n`;
-    sys += `Turkce konusuyorsun. Pedagojik dil kullan, cesaretlendirici ol.\n`;
-    sys += `Ham veriyi gosterme, yorumlayarak acikla.\n\n`;
-
-    // Memory instructions
-    sys += `HAFIZA SISTEMI:\n`;
-    sys += `Kullanici hakkinda onemli bilgiler ogrendiginde (tercihler, ogrenme stili, hedefler, kisilik) bunlari kaydetmek icin yanitinin SONUNA su formatta etiket ekle:\n`;
-    sys += `[HAFIZA_KAYDET:kategori:anahtar:deger]\n`;
-    sys += `Kategoriler: preferences, learning_style, strengths, weaknesses, goals, notes, personality\n`;
-    sys += `Ornekler:\n`;
-    sys += `[HAFIZA_KAYDET:learning_style:anlatim_tercihi:gorsel ogrenmeyi tercih ediyor]\n`;
-    sys += `[HAFIZA_KAYDET:preferences:ders_sirasi:once matematik sonra fen istiyor]\n`;
-    sys += `[HAFIZA_KAYDET:personality:iletisim:utangac, cesaretlendirme lazim]\n`;
-    sys += `[HAFIZA_KAYDET:goals:hedef:donem sonu matematik 80 uzeri]\n`;
-    sys += `Bu etiketler kullaniciya gosterilmez, sadece hafizaya kaydedilir.\n`;
-
-    // Include existing memories
-    if (memoryContext) {
-      sys += memoryContext;
-    }
-
-    // Tool data
+    let sys = `Sen bir egitim AI asistanisin. Kullanici rolu: ${auth.role}.\nTurkce konusuyorsun. Pedagojik dil kullan, cesaretlendirici ol.\nHam veriyi gosterme, yorumlayarak acikla.\n\n`;
+    sys += `HAFIZA SISTEMI:\nKullanici hakkinda onemli bilgiler ogrendiginde yanitinin SONUNA etiket ekle:\n[HAFIZA_KAYDET:kategori:anahtar:deger]\nKategoriler: preferences, learning_style, strengths, weaknesses, goals, notes, personality\n`;
+    if (memoryContext) sys += memoryContext;
     if (Object.keys(toolData).length > 0) {
-      sys += `\nOkul sisteminden alinan guncel veriler:\n`;
-      for (const [k, v] of Object.entries(toolData)) {
-        sys += `--- ${k} ---\n${JSON.stringify(v, null, 2).slice(0, 1500)}\n`;
-      }
+      sys += `\nOkul sisteminden alinan veriler:\n`;
+      for (const [k, v] of Object.entries(toolData)) sys += `--- ${k} ---\n${JSON.stringify(v, null, 2).slice(0, 1500)}\n`;
     }
-
     messages.push({ role: "system", content: sys });
-
-    // Previous messages
-    if (previousMessages?.length > 0) {
-      for (const msg of previousMessages.slice(-10)) {
-        messages.push({ role: msg.role, content: msg.content });
-      }
-    }
-
+    if (previousMessages?.length > 0) for (const msg of previousMessages.slice(-10)) messages.push({ role: msg.role, content: msg.content });
     messages.push({ role: "user", content: userMessage });
     return messages;
   }
 
-  _callAgentHTTP(agentKey, sessionKey, messages) {
-    return new Promise((resolve, reject) => {
-      const body = JSON.stringify({ model: "openclaw", messages, user: sessionKey });
-      const req = http.request({
-        hostname: GATEWAY_HOST, port: GATEWAY_PORT,
-        path: "/v1/chat/completions", method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer " + GATEWAY_TOKEN,
-          "x-openclaw-agent-id": agentKey,
-          "x-openclaw-session-key": sessionKey,
-          "Content-Length": Buffer.byteLength(body)
-        },
-        timeout: 90000
-      }, res => {
-        let data = "";
-        res.on("data", c => data += c);
-        res.on("end", () => {
-          try {
-            const d = JSON.parse(data);
-            const content = d.choices?.[0]?.message?.content;
-            if (content) resolve(content);
-            else reject(new Error("No content: " + data.slice(0, 200)));
-          } catch (e) { reject(new Error("Parse: " + data.slice(0, 100))); }
-        });
-      });
-      req.on("error", reject);
-      req.on("timeout", () => { req.destroy(); reject(new Error("Timeout")); });
-      req.write(body);
-      req.end();
-    });
-  }
-
-  _localFallback(message, auth, toolData) {
-    const name = toolData.profile?.full_name || "";
-    let r = `Merhaba${name ? " " + name.split(" ")[0] : ""}! 👋\n\n`;
-    if (toolData.outcomes?.outcomes?.length) {
-      const weak = toolData.outcomes.outcomes.filter(o => o.success_rate < 0.5);
-      const mid = toolData.outcomes.outcomes.filter(o => o.success_rate >= 0.5 && o.success_rate < 0.75);
-      if (weak.length) { r += `🔴 **Öncelikli konular:**\n`; weak.forEach((o,i) => r += `${i+1}. **${o.outcome_name}** — %${Math.round(o.success_rate*100)}\n`); r += "\n"; }
-      if (mid.length) { r += `🟡 **Pekiştirmen gerekenler:**\n`; mid.forEach((o,i) => r += `${i+1}. **${o.outcome_name}** — %${Math.round(o.success_rate*100)}\n`); r += "\n"; }
-    }
-    if (toolData.exams?.items?.length) { r += `📊 **Son sınavların:**\n`; toolData.exams.items.forEach(e => r += `- ${e.exam_name}: **${e.score}** (${e.exam_date})\n`); }
-    return r || "Merhaba! Size nasıl yardımcı olabilirim?";
+  _localFallback(auth, toolData) {
+    const name = toolData?.profile?.full_name || "";
+    return `Merhaba${name ? " " + name.split(" ")[0] : ""}! 👋 Size nasıl yardımcı olabilirim?`;
   }
 
   _getAgentKey(role) {

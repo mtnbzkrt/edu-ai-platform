@@ -147,6 +147,36 @@ app.post("/api/ai/chat", authMiddleware, async (req, res) => {
   }
 });
 
+// ─── STREAMING CHAT ENDPOINT ───
+app.post("/api/ai/chat/stream", authMiddleware, async (req, res) => {
+  const { session_id, message } = req.body;
+  if (!session_id || !message) return res.status(400).json({ ok: false, error: { code: "INVALID_INPUT" } });
+
+  const session = db.prepare("SELECT * FROM ai_sessions WHERE id = ? AND user_id = ?").get(session_id, req.user.user_id);
+  if (!session) return res.status(404).json({ ok: false, error: { code: "NOT_FOUND" } });
+
+  db.prepare("INSERT INTO ai_messages (id, session_id, role, content, created_at) VALUES (?, ?, 'user', ?, datetime('now'))").run(uuidv4(), session_id, message);
+
+  const authContext = buildAuthContext(req.user, session_id);
+  const prevMessages = db.prepare("SELECT role, content FROM ai_messages WHERE session_id = ? ORDER BY created_at ASC LIMIT 20").all(session_id);
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+
+  const orchestrator = require("./src/ai/orchestrator/chat-orchestrator");
+  try {
+    const result = await orchestrator.processMessageStream(message, authContext, { session_id, agent_key: session.agent_key }, prevMessages, res);
+    db.prepare("INSERT INTO ai_messages (id, session_id, role, content, used_tools, created_at) VALUES (?, ?, 'assistant', ?, ?, datetime('now'))").run(uuidv4(), session_id, result.reply, JSON.stringify(result.usedTools || []));
+    db.prepare("UPDATE ai_sessions SET updated_at = datetime('now') WHERE id = ?").run(session_id);
+  } catch (err) {
+    console.error("Stream error:", err);
+    res.write("data: " + JSON.stringify({ type: "error", message: err.message }) + "\n\n");
+    res.end();
+  }
+});
+
 // ─── TOOL API ENDPOINTS (POST /api/ai/tools/*) ───
 // These are the endpoints that agents call directly
 
