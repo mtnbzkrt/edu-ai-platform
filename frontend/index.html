@@ -2,94 +2,109 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Eğitim AI — Test Platformu</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Eğitim AI Platformu</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#f8fafc;--card:#fff;--border:#e2e8f0;--text:#1e293b;--text2:#64748b;--primary:#3b82f6;--primary-hover:#2563eb;--green:#22c55e;--red:#ef4444;--yellow:#f59e0b;--purple:#8b5cf6;--sidebar-bg:#1e293b;--sidebar-text:#e2e8f0}
-body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden}
-.app{display:none;flex-direction:column;height:100vh;overflow:hidden}
-.login{display:flex;align-items:center;justify-content:center;height:100vh;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%)}
-.login-card{background:#fff;padding:40px;border-radius:16px;width:380px;box-shadow:0 20px 60px rgba(0,0,0,.15)}
-.login-card h1{font-size:24px;margin-bottom:4px;color:#1e293b}
-.login-card p{color:#64748b;margin-bottom:24px;font-size:14px}
-.login-card input{width:100%;padding:12px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;margin-bottom:12px;outline:none}
-.login-card input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(59,130,246,.1)}
-.login-card button{width:100%;padding:12px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer}
-.login-card button:hover{background:var(--primary-hover)}
-.login-card .error{color:var(--red);font-size:13px;margin-top:8px}
-.login-card .accounts{margin-top:16px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8}
-.login-card .accounts span{display:inline-block;background:#f1f5f9;padding:2px 8px;border-radius:4px;margin:2px;cursor:pointer;color:#475569}
-.login-card .accounts span:hover{background:#e2e8f0}
+:root{--bg:#f8fafc;--card:#fff;--border:#e2e8f0;--text:#1e293b;--text2:#64748b;--primary:#3b82f6;--primary-hover:#2563eb;--green:#22c55e;--red:#ef4444;--yellow:#f59e0b;--sidebar-bg:#1e293b;--sidebar-text:#e2e8f0;--safe-bottom:env(safe-area-inset-bottom,0px)}
+body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);height:100dvh;overflow:hidden}
 
-/* Header */
-.header{display:flex;align-items:center;justify-content:space-between;padding:12px 24px;background:#fff;border-bottom:1px solid var(--border);flex-shrink:0}
-.header h2{font-size:18px;color:var(--text)}
-.header .user-info{display:flex;align-items:center;gap:12px;font-size:14px}
-.header .role-badge{padding:4px 10px;border-radius:12px;font-size:12px;font-weight:600;color:#fff}
+/* Login */
+.login{display:flex;align-items:center;justify-content:center;height:100dvh;background:linear-gradient(135deg,#667eea,#764ba2);padding:16px}
+.login-card{background:#fff;padding:32px;border-radius:16px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.15)}
+.login-card h1{font-size:22px;margin-bottom:4px}
+.login-card p{color:var(--text2);margin-bottom:20px;font-size:14px}
+.login-card input{width:100%;padding:12px;border:1px solid var(--border);border-radius:8px;font-size:16px;margin-bottom:10px;outline:none;-webkit-appearance:none}
+.login-card input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(59,130,246,.1)}
+.login-card button.login-btn{width:100%;padding:12px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer}
+.login-card .error{color:var(--red);font-size:13px;margin-top:8px}
+.quick-logins{margin-top:16px;padding-top:16px;border-top:1px solid var(--border)}
+.quick-logins p{font-size:12px;color:#94a3b8;margin-bottom:8px}
+.quick-logins .quick-row{display:flex;flex-wrap:wrap;gap:6px}
+.quick-btn{padding:6px 12px;background:#f1f5f9;border:1px solid var(--border);border-radius:6px;font-size:12px;cursor:pointer;color:#475569}
+.quick-btn:hover{background:#e2e8f0}
+
+/* App layout */
+.app{display:none;flex-direction:column;height:100dvh;overflow:hidden}
+
+/* Header - mobile friendly */
+.header{display:flex;align-items:center;padding:10px 16px;background:#fff;border-bottom:1px solid var(--border);flex-shrink:0;gap:8px;min-height:52px}
+.header .menu-btn{display:none;background:none;border:none;font-size:20px;cursor:pointer;padding:4px}
+.header .user-section{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+.header .user-name{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.role-badge{padding:3px 8px;border-radius:10px;font-size:11px;font-weight:600;color:#fff;white-space:nowrap}
 .role-student{background:var(--green)}
 .role-teacher{background:var(--primary)}
 .role-parent{background:var(--yellow);color:#1e293b}
-.header button{padding:6px 14px;border:1px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-size:13px}
+.header .logout-btn{padding:6px 12px;border:1px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-size:12px;white-space:nowrap;flex-shrink:0}
 
-/* Main layout */
-.main-content{display:flex;flex:1;overflow:hidden;min-height:0}
+/* Main content */
+.main-content{display:flex;flex:1;overflow:hidden;min-height:0;position:relative}
 
 /* Sidebar */
 .sidebar{width:280px;background:var(--sidebar-bg);color:var(--sidebar-text);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}
-.sidebar h3{padding:16px 20px 8px;font-size:13px;text-transform:uppercase;color:#94a3b8;letter-spacing:.5px}
+.sidebar h3{padding:14px 16px 6px;font-size:12px;text-transform:uppercase;color:#94a3b8;letter-spacing:.5px}
 .sidebar .new-session{margin:8px 12px;padding:10px;background:rgba(255,255,255,.1);border:1px dashed rgba(255,255,255,.2);border-radius:8px;color:#e2e8f0;cursor:pointer;text-align:center;font-size:13px}
-.sidebar .new-session:hover{background:rgba(255,255,255,.15)}
 .sessions-list{flex:1;overflow-y:auto;padding:4px 8px}
 .session-item{padding:10px 12px;border-radius:8px;cursor:pointer;margin-bottom:4px;font-size:13px;color:#cbd5e1}
 .session-item:hover{background:rgba(255,255,255,.08)}
 .session-item.active{background:rgba(59,130,246,.3);color:#fff}
 .session-item .agent-tag{font-size:11px;color:#94a3b8}
 
+/* Overlay for mobile sidebar */
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99}
+
 /* Chat area */
 .chat-area{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
-.welcome-screen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;text-align:center}
-.welcome-screen h2{font-size:28px;margin-bottom:8px}
-.welcome-screen p{color:var(--text2);max-width:500px;line-height:1.6}
-.welcome-screen .tools-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:24px;max-width:700px;width:100%}
-.welcome-screen .tool-card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px;text-align:left;cursor:pointer}
-.welcome-screen .tool-card:hover{border-color:var(--primary);box-shadow:0 2px 8px rgba(59,130,246,.1)}
-.welcome-screen .tool-card h4{font-size:13px;margin-bottom:4px}
-.welcome-screen .tool-card p{font-size:12px;color:var(--text2);margin:0}
+
+/* Welcome */
+.welcome-screen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 16px;text-align:center;overflow-y:auto}
+.welcome-screen h2{font-size:24px;margin-bottom:8px}
+.welcome-screen>p{color:var(--text2);max-width:400px;line-height:1.6;font-size:14px}
+.tools-grid{display:grid;grid-template-columns:1fr;gap:10px;margin-top:20px;width:100%;max-width:400px}
+.tool-card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 14px;text-align:left;cursor:pointer}
+.tool-card:hover{border-color:var(--primary)}
+.tool-card h4{font-size:13px;margin-bottom:2px}
+.tool-card p{font-size:12px;color:var(--text2);margin:0}
 
 /* Chat view */
 .chat-view{display:none;flex-direction:column;flex:1;overflow:hidden;min-height:0}
 .chat-view.visible{display:flex}
-.messages{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px;min-height:0}
-.msg{max-width:85%;padding:12px 16px;border-radius:12px;font-size:14px;line-height:1.6;word-wrap:break-word}
+.messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;min-height:0}
+.msg{max-width:90%;padding:10px 14px;border-radius:14px;font-size:14px;line-height:1.6;word-wrap:break-word}
 .msg.user{align-self:flex-end;background:var(--primary);color:#fff;border-bottom-right-radius:4px}
 .msg.assistant{align-self:flex-start;background:#fff;border:1px solid var(--border);border-bottom-left-radius:4px}
-.msg.assistant pre{background:#f1f5f9;padding:8px;border-radius:6px;overflow-x:auto;font-size:12px;margin:8px 0}
-.msg.assistant code{font-family:'Fira Code',monospace;font-size:12px}
-.msg .tools-used{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:11px;color:var(--text2)}
-.msg .tools-used span{display:inline-block;background:#f0fdf4;color:#16a34a;padding:2px 6px;border-radius:4px;margin:2px;font-size:11px}
+.msg.assistant strong{color:var(--text)}
+.msg.assistant pre{background:#f1f5f9;padding:8px;border-radius:6px;overflow-x:auto;font-size:12px;margin:6px 0}
+.msg .tools-used{margin-top:6px;padding-top:6px;border-top:1px solid var(--border);font-size:11px;color:var(--text2)}
+.msg .tools-used span{display:inline-block;background:#f0fdf4;color:#16a34a;padding:2px 6px;border-radius:4px;margin:2px;font-size:10px}
+.typing{align-self:flex-start;padding:12px 16px;color:var(--text2);font-size:13px}
+.typing::after{content:'';animation:dots 1.5s infinite}
+@keyframes dots{0%{content:''}33%{content:'.'}66%{content:'..'}100%{content:'...'}}
 
-/* Input */
-.chat-input{padding:16px 20px;border-top:1px solid var(--border);background:#fff;display:flex;gap:10px;flex-shrink:0}
-.chat-input input{flex:1;padding:12px 16px;border:1px solid var(--border);border-radius:10px;font-size:14px;outline:none}
-.chat-input input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(59,130,246,.1)}
-.chat-input button{padding:12px 24px;background:var(--primary);color:#fff;border:none;border-radius:10px;font-weight:600;cursor:pointer;font-size:14px}
-.chat-input button:hover{background:var(--primary-hover)}
-.chat-input button:disabled{opacity:.5;cursor:not-allowed}
+/* Chat input */
+.chat-input{padding:12px 16px;padding-bottom:calc(12px + var(--safe-bottom));border-top:1px solid var(--border);background:#fff;display:flex;gap:8px;flex-shrink:0}
+.chat-input input{flex:1;padding:10px 14px;border:1px solid var(--border);border-radius:22px;font-size:16px;outline:none;-webkit-appearance:none}
+.chat-input input:focus{border-color:var(--primary)}
+.chat-input button{width:44px;height:44px;background:var(--primary);color:#fff;border:none;border-radius:50%;font-size:18px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.chat-input button:disabled{opacity:.4;cursor:not-allowed}
 
-/* Tool Test Panel */
-.tool-panel{width:320px;border-left:1px solid var(--border);background:#fff;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
-.tool-panel h3{padding:16px 20px 8px;font-size:13px;text-transform:uppercase;color:var(--text2);letter-spacing:.5px;border-bottom:1px solid var(--border)}
-.tool-panel .tool-list{flex:1;overflow-y:auto;padding:8px}
-.tool-btn{display:block;width:100%;text-align:left;padding:10px 12px;background:none;border:1px solid transparent;border-radius:8px;cursor:pointer;font-size:13px;color:var(--text);margin-bottom:2px}
-.tool-btn:hover{background:#f8fafc;border-color:var(--border)}
-.tool-btn.active{background:#eff6ff;border-color:var(--primary);color:var(--primary)}
-.tool-result{padding:12px;background:#f8fafc;border-top:1px solid var(--border);overflow-y:auto;max-height:50%;font-size:12px}
-.tool-result pre{white-space:pre-wrap;word-wrap:break-word}
+/* New chat FAB */
+.fab{display:none;position:fixed;bottom:calc(80px + var(--safe-bottom));right:16px;width:52px;height:52px;background:var(--primary);color:#fff;border:none;border-radius:50%;font-size:24px;box-shadow:0 4px 12px rgba(59,130,246,.4);cursor:pointer;z-index:50;align-items:center;justify-content:center}
 
+/* Mobile */
 @media(max-width:768px){
-  .sidebar{display:none}
-  .tool-panel{display:none}
+  .header .menu-btn{display:block}
+  .sidebar{position:fixed;left:-280px;top:0;bottom:0;z-index:100;transition:left .25s ease}
+  .sidebar.open{left:0}
+  .sidebar-overlay.show{display:block}
+  .tools-grid{grid-template-columns:1fr}
+  .msg{max-width:92%}
+  .fab{display:flex}
+}
+
+@media(min-width:769px){
+  .tools-grid{grid-template-columns:repeat(2,1fr)}
 }
 </style>
 </head>
@@ -99,269 +114,226 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 <div class="login" id="loginScreen">
   <div class="login-card">
     <h1>🎓 Eğitim AI</h1>
-    <p>Test Platformu — Tool API & Agent Testi</p>
-    <input type="text" id="loginUser" placeholder="Kullanıcı adı" autofocus>
-    <input type="password" id="loginPass" placeholder="Şifre">
-    <button onclick="login()">Giriş Yap</button>
+    <p>Yapay zeka destekli eğitim platformu</p>
+    <input id="loginUser" type="text" placeholder="Kullanıcı adı" autocomplete="username">
+    <input id="loginPass" type="password" placeholder="Şifre" autocomplete="current-password">
+    <button class="login-btn" onclick="login()">Giriş Yap</button>
     <div class="error" id="loginError"></div>
-    <div class="accounts">
-      Test hesapları:
-      <span onclick="quickLogin('ahmet','123456')">🎓 ahmet</span>
-      <span onclick="quickLogin('zeynep','123456')">🎓 zeynep</span>
-      <span onclick="quickLogin('ayse.ogretmen','123456')">👩‍🏫 ayse</span>
-      <span onclick="quickLogin('veli.yilmaz','123456')">👨 veli</span>
-      <span onclick="quickLogin('admin','admin123')">⚙️ admin</span>
+    <div class="quick-logins">
+      <p>Hızlı giriş:</p>
+      <div class="quick-row">
+        <button class="quick-btn" onclick="quickLogin('ahmet','123456')">🎓 Ahmet</button>
+        <button class="quick-btn" onclick="quickLogin('zeynep','123456')">🎓 Zeynep</button>
+        <button class="quick-btn" onclick="quickLogin('ayse.ogretmen','123456')">👩‍🏫 Ayşe</button>
+        <button class="quick-btn" onclick="quickLogin('veli.yilmaz','123456')">👨 Veli</button>
+      </div>
     </div>
   </div>
 </div>
 
 <!-- APP -->
 <div class="app" id="app">
-  <!-- Header -->
   <div class="header">
-    <h2>🎓 Eğitim AI — Test Platformu</h2>
-    <div class="user-info">
-      <span id="userName"></span>
+    <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+    <div class="user-section">
+      <span class="user-name" id="userName"></span>
       <span class="role-badge" id="roleBadge"></span>
-      <span id="agentLabel" style="font-size:12px;color:#94a3b8"></span>
-      <button onclick="logout()">Çıkış</button>
     </div>
+    <button class="logout-btn" onclick="logout()">Çıkış</button>
   </div>
 
   <div class="main-content">
-    <!-- Sidebar: Sessions -->
-    <div class="sidebar">
-      <h3>Konuşmalar</h3>
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+    <div class="sidebar" id="sidebar">
+      <h3>💬 Konuşmalar</h3>
       <div class="new-session" onclick="newSession()">+ Yeni Konuşma</div>
       <div class="sessions-list" id="sessionsList"></div>
     </div>
 
-    <!-- Chat Area -->
-    <div class="chat-area" id="chatArea">
+    <div class="chat-area">
+      <!-- Welcome -->
       <div class="welcome-screen" id="welcomeScreen">
         <h2>Hoş Geldiniz 👋</h2>
-        <p>Bu bir <strong>test platformudur</strong>. Agent'ların tool çağrılarını ve School Connector yanıtlarını test edebilirsiniz.</p>
+        <p>AI asistanınızla sohbet başlatın. Sınav sonuçlarınızı analiz edebilir, eksik konularınızı bulabilir ve çalışma planı hazırlayabilir.</p>
         <div class="tools-grid" id="toolsGrid"></div>
       </div>
 
-      <div id="chatView" class="chat-view">
+      <!-- Chat -->
+      <div class="chat-view" id="chatView">
         <div class="messages" id="messages"></div>
         <div class="chat-input">
-          <input type="text" id="chatInput" placeholder="Mesajınızı yazın..." onkeydown="if(event.key==='Enter')sendMessage()">
-          <button id="sendBtn" onclick="sendMessage()">Gönder</button>
+          <input id="chatInput" type="text" placeholder="Mesajınızı yazın..." onkeydown="if(event.key==='Enter')sendMessage()">
+          <button id="sendBtn" onclick="sendMessage()">➤</button>
         </div>
       </div>
     </div>
-
-    <!-- Tool Test Panel -->
-    <div class="tool-panel" id="toolPanel">
-      <h3>🔧 Tool API Testi</h3>
-      <div class="tool-list" id="toolList"></div>
-      <div class="tool-result" id="toolResult" style="display:none">
-        <strong>Sonuç:</strong>
-        <pre id="toolResultContent"></pre>
-      </div>
-    </div>
   </div>
+
+  <button class="fab" id="fabBtn" onclick="newSession()">+</button>
 </div>
 
 <script>
-let TOKEN = null, USER = null, CURRENT_SESSION = null;
-const API = window.location.origin;
+let TOKEN=null, USER=null, CURRENT_SESSION=null;
+const API=window.location.origin;
 
-function quickLogin(u, p) {
-  document.getElementById("loginUser").value = u;
-  document.getElementById("loginPass").value = p;
-  login();
+function quickLogin(u,p){document.getElementById("loginUser").value=u;document.getElementById("loginPass").value=p;login()}
+
+async function login(){
+  const username=document.getElementById("loginUser").value;
+  const password=document.getElementById("loginPass").value;
+  try{
+    const r=await fetch(API+"/api/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username,password})});
+    const d=await r.json();
+    if(!d.ok){document.getElementById("loginError").textContent=d.error?.message||"Hata";return}
+    TOKEN=d.data.token;USER=d.data.user;
+    document.getElementById("loginScreen").style.display="none";
+    document.getElementById("app").style.display="flex";
+    document.getElementById("userName").textContent=USER.full_name;
+    const badge=document.getElementById("roleBadge");
+    badge.textContent={student:"Öğrenci",teacher:"Öğretmen",parent:"Veli",admin:"Admin"}[USER.role];
+    badge.className="role-badge role-"+USER.role;
+    loadSessions();loadToolsGrid();
+  }catch(e){document.getElementById("loginError").textContent="Bağlantı hatası"}
 }
 
-async function login() {
-  const username = document.getElementById("loginUser").value;
-  const password = document.getElementById("loginPass").value;
-  try {
-    const r = await fetch(API + "/api/auth/login", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password })
-    });
-    const d = await r.json();
-    if (!d.ok) { document.getElementById("loginError").textContent = d.error?.message || "Hata"; return; }
-    TOKEN = d.data.token;
-    USER = d.data.user;
-    document.getElementById("loginScreen").style.display = "none";
-    document.getElementById("app").style.display = "flex";
-    document.getElementById("userName").textContent = USER.full_name;
-    const badge = document.getElementById("roleBadge");
-    badge.textContent = { student: "Öğrenci", teacher: "Öğretmen", parent: "Veli", admin: "Admin" }[USER.role];
-    badge.className = "role-badge role-" + USER.role;
-    document.getElementById("agentLabel").textContent = d.data.agent_key;
-    loadSessions();
-    loadTools();
-    loadToolsGrid();
-  } catch (e) {
-    document.getElementById("loginError").textContent = "Bağlantı hatası";
-  }
+function logout(){
+  TOKEN=null;USER=null;CURRENT_SESSION=null;
+  document.getElementById("loginScreen").style.display="flex";
+  document.getElementById("app").style.display="none";
+  document.getElementById("chatView").classList.remove("visible");
+  document.getElementById("welcomeScreen").style.display="flex";
 }
 
-function logout() {
-  TOKEN = null; USER = null; CURRENT_SESSION = null;
-  document.getElementById("loginScreen").style.display = "flex";
-  document.getElementById("app").style.display = "none";
+function toggleSidebar(){
+  document.getElementById("sidebar").classList.toggle("open");
+  document.getElementById("sidebarOverlay").classList.toggle("show");
 }
 
-async function loadSessions() {
-  const r = await fetch(API + "/api/ai/sessions", { headers: { Authorization: "Bearer " + TOKEN } });
-  const d = await r.json();
-  const el = document.getElementById("sessionsList");
-  el.innerHTML = (d.data?.sessions || []).map(s =>
-    `<div class="session-item${CURRENT_SESSION === s.id ? ' active' : ''}" onclick="openSession('${s.id}')">
-      <div>${s.title || 'Konuşma'}</div>
+async function loadSessions(){
+  const r=await fetch(API+"/api/ai/sessions",{headers:{Authorization:"Bearer "+TOKEN}});
+  const d=await r.json();
+  document.getElementById("sessionsList").innerHTML=(d.data?.sessions||[]).map(s=>
+    `<div class="session-item${CURRENT_SESSION===s.id?' active':''}" onclick="openSession('${s.id}')">
+      <div>${s.title||'Konuşma'}</div>
       <div class="agent-tag">${s.agent_key}</div>
     </div>`
   ).join("");
 }
 
-async function newSession() {
-  const r = await fetch(API + "/api/ai/sessions", {
-    method: "POST", headers: { Authorization: "Bearer " + TOKEN, "Content-Type": "application/json" },
-    body: JSON.stringify({})
-  });
-  const d = await r.json();
-  if (d.ok) {
-    await loadSessions();
-    openSession(d.data.session_id);
-  }
+async function newSession(){
+  const r=await fetch(API+"/api/ai/sessions",{method:"POST",headers:{Authorization:"Bearer "+TOKEN,"Content-Type":"application/json"},body:JSON.stringify({})});
+  const d=await r.json();
+  if(d.ok){await loadSessions();openSession(d.data.session_id)}
+  // Close sidebar on mobile
+  document.getElementById("sidebar").classList.remove("open");
+  document.getElementById("sidebarOverlay").classList.remove("show");
 }
 
-async function openSession(sessionId) {
-  CURRENT_SESSION = sessionId;
-  document.getElementById("welcomeScreen").style.display = "none";
+async function openSession(sid){
+  CURRENT_SESSION=sid;
+  document.getElementById("welcomeScreen").style.display="none";
   document.getElementById("chatView").classList.add("visible");
+  document.getElementById("fabBtn").style.display="none";
 
-  const r = await fetch(API + "/api/ai/sessions/" + sessionId, { headers: { Authorization: "Bearer " + TOKEN } });
-  const d = await r.json();
-  const msgEl = document.getElementById("messages");
-  msgEl.innerHTML = (d.data?.messages || []).map(m => renderMessage(m)).join("");
-  msgEl.scrollTop = msgEl.scrollHeight;
+  const r=await fetch(API+"/api/ai/sessions/"+sid,{headers:{Authorization:"Bearer "+TOKEN}});
+  const d=await r.json();
+  const el=document.getElementById("messages");
+  el.innerHTML=(d.data?.messages||[]).map(m=>renderMessage(m)).join("");
+  el.scrollTop=el.scrollHeight;
   loadSessions();
+
+  // Close sidebar on mobile
+  document.getElementById("sidebar").classList.remove("open");
+  document.getElementById("sidebarOverlay").classList.remove("show");
+  document.getElementById("chatInput").focus();
 }
 
-function renderMessage(m) {
-  let content = m.content || "";
-  // Simple markdown-like rendering
-  content = content.replace(/```json\n([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
-  content = content.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
-  content = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-  content = content.replace(/\n/g, '<br>');
-
-  let tools = "";
-  if (m.tool_calls) {
-    try {
-      const tc = JSON.parse(m.tool_calls);
-      if (tc.length > 0) {
-        tools = `<div class="tools-used">Tool'lar: ${tc.map(t => `<span>🔧 ${t}</span>`).join("")}</div>`;
-      }
-    } catch {}
-  }
-  return `<div class="msg ${m.role}">${content}${tools}</div>`;
+function renderMessage(m){
+  let c=m.content||"";
+  c=c.replace(/```[\s\S]*?```/g,s=>'<pre><code>'+s.slice(3,-3).replace(/^[a-z]*\n/,'')+'</code></pre>');
+  c=c.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
+  // Tables
+  c=c.replace(/\|(.+)\|\n\|[-| ]+\|\n((?:\|.+\|\n?)*)/g,(match,header,rows)=>{
+    let t='<table style="width:100%;font-size:12px;border-collapse:collapse;margin:8px 0"><tr>';
+    header.split('|').filter(Boolean).forEach(h=>t+=`<th style="padding:4px 8px;border-bottom:2px solid var(--border);text-align:left">${h.trim()}</th>`);
+    t+='</tr>';
+    rows.trim().split('\n').forEach(r=>{t+='<tr>';r.split('|').filter(Boolean).forEach(c=>t+=`<td style="padding:4px 8px;border-bottom:1px solid var(--border)">${c.trim()}</td>`);t+='</tr>'});
+    return t+'</table>';
+  });
+  c=c.replace(/\n/g,'<br>');
+  
+  let tools="";
+  const tc=m.used_tools||m.tool_calls;
+  if(tc){try{const arr=typeof tc==='string'?JSON.parse(tc):tc;if(arr.length)tools=`<div class="tools-used">${arr.map(t=>`<span>🔧 ${t}</span>`).join("")}</div>`}catch{}}
+  return`<div class="msg ${m.role}">${c}${tools}</div>`;
 }
 
-async function sendMessage() {
-  const input = document.getElementById("chatInput");
-  const msg = input.value.trim();
-  if (!msg || !CURRENT_SESSION) return;
-  input.value = "";
+async function sendMessage(){
+  const input=document.getElementById("chatInput");
+  const msg=input.value.trim();
+  if(!msg||!CURRENT_SESSION)return;
+  input.value="";
 
-  const msgEl = document.getElementById("messages");
-  msgEl.innerHTML += renderMessage({ role: "user", content: msg });
-  msgEl.scrollTop = msgEl.scrollHeight;
+  const el=document.getElementById("messages");
+  el.innerHTML+=renderMessage({role:"user",content:msg});
+  el.innerHTML+='<div class="typing" id="typingIndicator">AI düşünüyor</div>';
+  el.scrollTop=el.scrollHeight;
+  document.getElementById("sendBtn").disabled=true;
 
-  document.getElementById("sendBtn").disabled = true;
-
-  try {
-    const r = await fetch(API + "/api/ai/chat", {
-      method: "POST", headers: { Authorization: "Bearer " + TOKEN, "Content-Type": "application/json" },
-      body: JSON.stringify({ session_id: CURRENT_SESSION, message: msg })
-    });
-    const d = await r.json();
-    if (d.ok) {
-      msgEl.innerHTML += renderMessage({
-        role: "assistant",
-        content: d.data.assistant_message,
-        tool_calls: JSON.stringify(d.data.used_tools || [])
-      });
-    } else {
-      msgEl.innerHTML += renderMessage({ role: "assistant", content: "⚠️ Hata: " + (d.error?.message || "Bilinmeyen") });
+  try{
+    const r=await fetch(API+"/api/ai/chat",{method:"POST",headers:{Authorization:"Bearer "+TOKEN,"Content-Type":"application/json"},body:JSON.stringify({session_id:CURRENT_SESSION,message:msg})});
+    const d=await r.json();
+    document.getElementById("typingIndicator")?.remove();
+    if(d.ok){
+      el.innerHTML+=renderMessage({role:"assistant",content:d.data.assistant_message,used_tools:d.data.used_tools||[]});
+    }else{
+      el.innerHTML+=renderMessage({role:"assistant",content:"⚠️ "+( d.error?.message||"Hata oluştu")});
     }
-  } catch (e) {
-    msgEl.innerHTML += renderMessage({ role: "assistant", content: "⚠️ Bağlantı hatası: " + e.message });
+  }catch(e){
+    document.getElementById("typingIndicator")?.remove();
+    el.innerHTML+=renderMessage({role:"assistant",content:"⚠️ Bağlantı hatası"});
   }
 
-  msgEl.scrollTop = msgEl.scrollHeight;
-  document.getElementById("sendBtn").disabled = false;
+  el.scrollTop=el.scrollHeight;
+  document.getElementById("sendBtn").disabled=false;
   input.focus();
 }
 
-async function loadTools() {
-  const r = await fetch(API + "/api/ai/tools", { headers: { Authorization: "Bearer " + TOKEN } });
-  const d = await r.json();
-  const tools = d.data?.available_tools || [];
-  const el = document.getElementById("toolList");
-  el.innerHTML = tools.map(t =>
-    `<button class="tool-btn" onclick="testTool('${t}')">${t}</button>`
-  ).join("");
-}
-
-function loadToolsGrid() {
-  const toolDescriptions = {
-    student: [
-      { name: "get_self_profile", desc: "Profilini görüntüle" },
-      { name: "get_self_exam_results", desc: "Sınav sonuçlarını çek" },
-      { name: "get_self_outcome_breakdown", desc: "Kazanım kırılımı" },
-      { name: "get_self_assignments", desc: "Ödevlerini listele" }
+function loadToolsGrid(){
+  const descs={
+    student:[
+      {icon:"📊",name:"Sınav Analizi",desc:"Sınavlarını analiz et, eksik konuları bul",q:"Son sınavlarımda durumum nasıl?"},
+      {icon:"📝",name:"Ödev Takibi",desc:"Bekleyen ödevlerini gör",q:"Ödevlerim ne durumda?"},
+      {icon:"🎯",name:"Çalışma Planı",desc:"Kişisel çalışma planı oluştur",q:"Bana bir çalışma planı hazırla"},
+      {icon:"📖",name:"Konu Anlatımı",desc:"Zorlandığın konuyu öğren",q:"Kesirlerde sıralama konusunu anlat"}
     ],
-    teacher: [
-      { name: "list_teacher_classes", desc: "Sınıflarını listele" },
-      { name: "get_class_outcome_breakdown", desc: "Sınıf kazanım analizi" },
-      { name: "get_class_exam_results", desc: "Sınıf sınav sonuçları" }
+    teacher:[
+      {icon:"📊",name:"Sınıf Performansı",desc:"Sınıfının genel durumunu gör",q:"Sınıfımın performansı nasıl?"},
+      {icon:"📋",name:"Öğrenci Listesi",desc:"Öğrencilerini ve notlarını gör",q:"Öğrencilerimin sınav sonuçları ne?"},
+      {icon:"🔍",name:"Kazanım Analizi",desc:"Konu bazlı başarı oranları",q:"Hangi konularda sınıf zorlanıyor?"}
     ],
-    parent: [
-      { name: "list_my_children", desc: "Çocuklarını listele" },
-      { name: "get_child_exam_results", desc: "Çocuğun sınav sonuçları" },
-      { name: "get_child_attendance", desc: "Devamsızlık bilgisi" }
+    parent:[
+      {icon:"📊",name:"Sınav Sonuçları",desc:"Çocuğunuzun sınav durumu",q:"Çocuğumun sınav sonuçları nasıl?"},
+      {icon:"📅",name:"Devamsızlık",desc:"Devamsızlık bilgileri",q:"Çocuğumun devamsızlık durumu ne?"},
+      {icon:"📝",name:"Ödevler",desc:"Ödev durumu",q:"Çocuğumun ödevleri ne durumda?"}
     ]
   };
-
-  const tools = toolDescriptions[USER?.role] || [];
-  document.getElementById("toolsGrid").innerHTML = tools.map(t =>
-    `<div class="tool-card" onclick="testTool('${t.name}')">
-      <h4>🔧 ${t.name}</h4>
+  const tools=descs[USER?.role]||[];
+  document.getElementById("toolsGrid").innerHTML=tools.map(t=>
+    `<div class="tool-card" onclick="startWithQuestion('${t.q}')">
+      <h4>${t.icon} ${t.name}</h4>
       <p>${t.desc}</p>
     </div>`
   ).join("");
 }
 
-async function testTool(toolName) {
-  const resultEl = document.getElementById("toolResult");
-  const contentEl = document.getElementById("toolResultContent");
-  resultEl.style.display = "block";
-  contentEl.textContent = "Yükleniyor...";
-
-  // Highlight active
-  document.querySelectorAll(".tool-btn").forEach(b => b.classList.remove("active"));
-  document.querySelectorAll(".tool-btn").forEach(b => { if (b.textContent === toolName) b.classList.add("active"); });
-
-  try {
-    const r = await fetch(API + "/api/ai/tools/" + toolName, {
-      method: "POST",
-      headers: { Authorization: "Bearer " + TOKEN, "Content-Type": "application/json" },
-      body: JSON.stringify({ input: {}, meta: { request_id: "test_" + Date.now() } })
-    });
-    const d = await r.json();
-    contentEl.textContent = JSON.stringify(d, null, 2);
-  } catch (e) {
-    contentEl.textContent = "Hata: " + e.message;
-  }
+async function startWithQuestion(q){
+  await newSession();
+  document.getElementById("chatInput").value=q;
+  sendMessage();
 }
+
+document.getElementById("chatInput")?.addEventListener("keydown",e=>{if(e.key==="Enter")sendMessage()});
 </script>
 </body>
 </html>
