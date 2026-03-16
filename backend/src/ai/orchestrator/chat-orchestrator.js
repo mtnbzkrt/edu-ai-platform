@@ -118,7 +118,6 @@ ${memoryContext}`;
     messages.push({ role: "user", content: message });
 
     // Send prompt to frontend for display
-    res.write(`data: ${JSON.stringify({ type: "prompt", agent: agentKey, session_key: sessionKey, messages })}\n\n`);
     res.write(`data: ${JSON.stringify({ type: "tools", tools: [] })}\n\n`);
 
     return new Promise((resolve, reject) => {

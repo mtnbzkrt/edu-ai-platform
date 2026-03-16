@@ -9,7 +9,6 @@
 :root{--bg:#f8fafc;--card:#fff;--border:#e2e8f0;--text:#1e293b;--text2:#64748b;--primary:#3b82f6;--primary-hover:#2563eb;--green:#22c55e;--red:#ef4444;--yellow:#f59e0b;--sidebar-bg:#1e293b;--sidebar-text:#e2e8f0;--safe-bottom:env(safe-area-inset-bottom,0px)}
 body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);height:100dvh;overflow:hidden}
 
-/* Login */
 .login{display:flex;align-items:center;justify-content:center;height:100dvh;background:linear-gradient(135deg,#667eea,#764ba2);padding:16px}
 .login-card{background:#fff;padding:32px;border-radius:16px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.15)}
 .login-card h1{font-size:22px;margin-bottom:4px}
@@ -24,10 +23,8 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 .quick-btn{padding:6px 12px;background:#f1f5f9;border:1px solid var(--border);border-radius:6px;font-size:12px;cursor:pointer;color:#475569}
 .quick-btn:hover{background:#e2e8f0}
 
-/* App layout */
 .app{display:none;flex-direction:column;height:100dvh;overflow:hidden}
 
-/* Header */
 .header{display:flex;align-items:center;padding:10px 16px;background:#fff;border-bottom:1px solid var(--border);flex-shrink:0;gap:8px;min-height:52px}
 .header .menu-btn{display:none;background:none;border:none;font-size:20px;cursor:pointer;padding:4px}
 .header .user-section{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
@@ -38,11 +35,9 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 .role-parent{background:var(--yellow);color:#1e293b}
 .header .logout-btn{padding:6px 12px;border:1px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-size:12px;white-space:nowrap;flex-shrink:0}
 
-/* Main content */
 .main-content{display:flex;flex:1;overflow:hidden;min-height:0;position:relative}
 
-/* Sessions sidebar */
-.sidebar{width:220px;background:var(--sidebar-bg);color:var(--sidebar-text);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}
+.sidebar{width:280px;background:var(--sidebar-bg);color:var(--sidebar-text);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}
 .sidebar h3{padding:14px 16px 6px;font-size:12px;text-transform:uppercase;color:#94a3b8;letter-spacing:.5px}
 .sidebar .new-session{margin:8px 12px;padding:10px;background:rgba(255,255,255,.1);border:1px dashed rgba(255,255,255,.2);border-radius:8px;color:#e2e8f0;cursor:pointer;text-align:center;font-size:13px}
 .sessions-list{flex:1;overflow-y:auto;padding:4px 8px}
@@ -52,30 +47,8 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 .session-item .agent-tag{font-size:11px;color:#94a3b8}
 .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99}
 
-/* Prompt panel (left) */
-.prompt-panel{width:420px;background:#1a1a2e;color:#e2e8f0;display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;border-right:1px solid #2d2d44}
-.prompt-panel.hidden{display:none}
-.prompt-header{padding:10px 14px;background:#16162a;border-bottom:1px solid #2d2d44;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
-.prompt-header h3{font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;color:#a5b4fc}
-.prompt-header .prompt-meta{font-size:11px;color:#64748b}
-.prompt-body{flex:1;overflow-y:auto;padding:0}
-
-/* Prompt message blocks */
-.prompt-msg{border-bottom:1px solid #2d2d44;padding:10px 14px}
-.prompt-msg-role{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;display:flex;align-items:center;gap:6px}
-.prompt-msg-role.system{color:#f59e0b}
-.prompt-msg-role.user{color:#3b82f6}
-.prompt-msg-role.assistant{color:#22c55e}
-.prompt-msg-content{font-size:12px;line-height:1.6;color:#cbd5e1;white-space:pre-wrap;word-break:break-word;font-family:'SF Mono',Monaco,Consolas,monospace;max-height:none}
-.prompt-msg-content .data-section{background:#0f0f23;border-radius:6px;padding:8px;margin:6px 0;font-size:11px;color:#94a3b8;max-height:200px;overflow-y:auto}
-
-/* Prompt empty state */
-.prompt-empty{padding:40px 20px;text-align:center;color:#475569;font-size:13px;line-height:1.6}
-
-/* Chat area */
 .chat-area{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
 
-/* Welcome */
 .welcome-screen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 16px;text-align:center;overflow-y:auto}
 .welcome-screen h2{font-size:24px;margin-bottom:8px}
 .welcome-screen>p{color:var(--text2);max-width:400px;line-height:1.6;font-size:14px}
@@ -85,7 +58,6 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 .tool-card h4{font-size:13px;margin-bottom:2px}
 .tool-card p{font-size:12px;color:var(--text2);margin:0}
 
-/* Chat view */
 .chat-view{display:none;flex-direction:column;flex:1;overflow:hidden;min-height:0}
 .chat-view.visible{display:flex}
 .messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;min-height:0}
@@ -99,7 +71,6 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 .typing-text::after{content:'';animation:dots 1.5s infinite}
 @keyframes dots{0%{content:''}33%{content:'.'}66%{content:'..'}100%{content:'...'}}
 
-/* Chat input */
 .chat-input{padding:12px 16px;padding-bottom:calc(12px + var(--safe-bottom));border-top:1px solid var(--border);background:#fff;display:flex;gap:8px;flex-shrink:0}
 .chat-input input{flex:1;padding:10px 14px;border:1px solid var(--border);border-radius:22px;font-size:16px;outline:none;-webkit-appearance:none}
 .chat-input input:focus{border-color:var(--primary)}
@@ -111,18 +82,11 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 .streaming-cursor::after{content:"▊";animation:blink 0.7s infinite;color:var(--primary)}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
 
-/* Toggle prompt btn in header */
-.prompt-toggle{padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-size:12px;white-space:nowrap;flex-shrink:0;display:flex;align-items:center;gap:4px}
-.prompt-toggle.active{background:#eef2ff;border-color:var(--primary);color:var(--primary)}
-
-/* Mobile */
 @media(max-width:768px){
   .header .menu-btn{display:block}
-  .sidebar{position:fixed;left:-220px;top:0;bottom:0;z-index:100;transition:left .25s ease}
+  .sidebar{position:fixed;left:-280px;top:0;bottom:0;z-index:100;transition:left .25s ease}
   .sidebar.open{left:0}
   .sidebar-overlay.show{display:block}
-  .prompt-panel{position:fixed;left:0;top:52px;bottom:0;z-index:97;width:100%;max-width:360px;transform:translateX(-100%);transition:transform .25s ease}
-  .prompt-panel.mobile-open{transform:translateX(0)}
   .tools-grid{grid-template-columns:1fr}
   .msg{max-width:92%}
   .fab{display:flex}
@@ -132,7 +96,6 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 </head>
 <body>
 
-<!-- LOGIN -->
 <div class="login" id="loginScreen">
   <div class="login-card">
     <h1>🎓 Eğitim AI</h1>
@@ -153,7 +116,6 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
   </div>
 </div>
 
-<!-- APP -->
 <div class="app" id="app">
   <div class="header">
     <button class="menu-btn" onclick="toggleSidebar()">☰</button>
@@ -161,7 +123,6 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
       <span class="user-name" id="userName"></span>
       <span class="role-badge" id="roleBadge"></span>
     </div>
-    <button class="prompt-toggle active" id="promptToggle" onclick="togglePromptPanel()">🔍 Prompt</button>
     <button class="logout-btn" onclick="logout()">Çıkış</button>
   </div>
 
@@ -173,23 +134,10 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
       <div class="sessions-list" id="sessionsList"></div>
     </div>
 
-    <!-- Prompt Panel -->
-    <div class="prompt-panel" id="promptPanel">
-      <div class="prompt-header">
-        <h3>🔍 Anthropic'e Gönderilen</h3>
-        <span class="prompt-meta" id="promptMeta"></span>
-      </div>
-      <div class="prompt-body" id="promptBody">
-        <div class="prompt-empty">
-          Bir mesaj gönderdiğinizde<br>AI'ya gönderilen tam prompt<br>burada görünecek
-        </div>
-      </div>
-    </div>
-
     <div class="chat-area">
       <div class="welcome-screen" id="welcomeScreen">
         <h2>Hoş Geldiniz 👋</h2>
-        <p>AI asistanınızla sohbet başlatın. Sol panelde Anthropic'e gönderilen tam mesajı görebilirsiniz.</p>
+        <p>AI asistanınızla sohbet başlatın. Sınav sonuçlarınızı analiz edebilir, eksik konularınızı bulabilir ve çalışma planı hazırlayabilir.</p>
         <div class="tools-grid" id="toolsGrid"></div>
       </div>
 
@@ -207,49 +155,8 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 </div>
 
 <script>
-let TOKEN=null, USER=null, CURRENT_SESSION=null;
-let promptVisible=true;
+let TOKEN=null,USER=null,CURRENT_SESSION=null;
 const API=window.location.origin;
-
-function togglePromptPanel(){
-  promptVisible=!promptVisible;
-  const p=document.getElementById("promptPanel");
-  const b=document.getElementById("promptToggle");
-  if(promptVisible){p.classList.remove("hidden");p.classList.add("mobile-open");b.classList.add("active")}
-  else{p.classList.add("hidden");p.classList.remove("mobile-open");b.classList.remove("active")}
-}
-
-function escHtml(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
-
-function renderPrompt(data){
-  const body=document.getElementById("promptBody");
-  const meta=document.getElementById("promptMeta");
-  meta.textContent=`${data.agent} · ${data.messages.length} mesaj`;
-  
-  let html="";
-  for(const msg of data.messages){
-    const roleClass=msg.role;
-    const roleLabel={system:"⚙️ SYSTEM",user:"👤 USER",assistant:"🤖 ASSISTANT"}[msg.role]||msg.role.toUpperCase();
-    
-    // Format content - highlight data sections
-    let content=escHtml(msg.content);
-    // Highlight --- sections ---
-    content=content.replace(/^(--- .+ ---)$/gm,'<span style="color:#f59e0b;font-weight:600">$1</span>');
-    // Highlight JSON blocks
-    content=content.replace(/(\{[\s\S]*?\})/g,function(match){
-      if(match.length>50) return '<div class="data-section">'+match+'</div>';
-      return '<span style="color:#a5b4fc">'+match+'</span>';
-    });
-    
-    html+=`<div class="prompt-msg">
-      <div class="prompt-msg-role ${roleClass}">${roleLabel} <span style="font-weight:400;color:#64748b">(${msg.content.length} chars)</span></div>
-      <div class="prompt-msg-content">${content}</div>
-    </div>`;
-  }
-  body.innerHTML=html;
-  // Scroll to bottom to show user message
-  body.scrollTop=body.scrollHeight;
-}
 
 function quickLogin(u,p){document.getElementById("loginUser").value=u;document.getElementById("loginPass").value=p;login()}
 
@@ -365,9 +272,7 @@ async function sendMessage(){
         if(!line.startsWith("data: "))continue;
         try{
           const data=JSON.parse(line.slice(6));
-          if(data.type==="prompt"){
-            renderPrompt(data);
-          }else if(data.type==="tools"){
+          if(data.type==="tools"){
             usedTools=data.tools;
           }else if(data.type==="chunk"){
             fullText+=data.text;
