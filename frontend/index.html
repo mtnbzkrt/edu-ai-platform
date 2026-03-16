@@ -338,7 +338,21 @@ function loadToolsGrid(){
   ).join("");
 }
 
-async function startWithQuestion(q){await newSession();document.getElementById("chatInput").value=q;sendMessage()}
+async function startWithQuestion(q){
+  const r=await fetch(API+"/api/ai/sessions",{method:"POST",headers:{Authorization:"Bearer "+TOKEN,"Content-Type":"application/json"},body:JSON.stringify({})});
+  const d=await r.json();
+  if(!d.ok)return;
+  await loadSessions();
+  CURRENT_SESSION=d.data.session_id;
+  document.getElementById("welcomeScreen").style.display="none";
+  document.getElementById("chatView").classList.add("visible");
+  document.getElementById("fabBtn").style.display="none";
+  document.getElementById("messages").innerHTML="";
+  document.getElementById("sidebar").classList.remove("open");
+  document.getElementById("sidebarOverlay").classList.remove("show");
+  document.getElementById("chatInput").value=q;
+  await sendMessage();
+}
 </script>
 </body>
 </html>
