@@ -29,50 +29,40 @@ class ChatOrchestrator {
     return { reply: cleanResponse, usedTools };
   }
 
-  // Helper to send activity events
-  _sendActivity(res, step, detail, status = "running") {
-    if (!res || res.writableEnded) return;
-    res.write(`data: ${JSON.stringify({ type: "activity", step, detail, status, ts: Date.now() })}\n\n`);
-  }
-
-  // Streaming version with activity feed
+  // Streaming version — activity steps collected, sent as summary at end
   async processMessageStream(message, authContext, sessionContext, previousMessages, res) {
+    const startTime = Date.now();
+    const steps = []; // collect steps, send at end
+    const step = (icon, label, detail) => steps.push({ icon, label, detail, ts: Date.now() - startTime });
+
     const agentKey = sessionContext.agent_key || this._getAgentKey(authContext.role);
+
+    // Step 1: Prefetch tools
+    step("🔐", "Kimlik doğrulama", `${authContext.role} — ${authContext.user_id}`);
     
-    // Step 1: Auth & session
-    this._sendActivity(res, "auth", `Kullanıcı doğrulandı: ${authContext.role}`, "done");
-    this._sendActivity(res, "session", `Oturum: ${sessionContext.session_id}`, "done");
-    
-    // Step 2: Prefetch tools with activity events
-    this._sendActivity(res, "tools_start", "Okul verileri sorgulanıyor...", "running");
     const usedTools = [];
-    const toolData = this._prefetchDataWithActivity(message, authContext, usedTools, res);
-    this._sendActivity(res, "tools_done", `${usedTools.length} veri kaynağı sorgulandı`, "done");
+    const toolData = this._prefetchDataWithSteps(message, authContext, usedTools, step);
 
-    // Step 3: Memory
-    this._sendActivity(res, "memory_load", "Kullanıcı hafızası yükleniyor...", "running");
+    // Step 2: Memory
     const memoryContext = UserMemory.buildContext(authContext.user_id);
-    this._sendActivity(res, "memory_load", memoryContext ? "Hafıza yüklendi" : "Hafıza boş", "done");
+    step("🧠", "Hafıza", memoryContext ? "Mevcut hafıza yüklendi" : "Hafıza boş");
 
-    // Step 4: Build messages
-    this._sendActivity(res, "build_prompt", "Sistem promptu hazırlanıyor...", "running");
+    // Step 3: Build messages
     const messages = this._buildMessages(message, authContext, toolData, usedTools, previousMessages, memoryContext);
     const totalChars = messages.reduce((s, m) => s + m.content.length, 0);
-    this._sendActivity(res, "build_prompt", `${messages.length} mesaj, ${totalChars} karakter`, "done");
+    step("📝", "Prompt", `${messages.length} mesaj, ${totalChars} karakter`);
 
     const sessionKey = `edu:${authContext.role}:${authContext.user_id}:${agentKey}`;
 
     // Send tools info
     res.write(`data: ${JSON.stringify({ type: "tools", tools: usedTools })}\n\n`);
 
-    // Step 5: Agent call
-    this._sendActivity(res, "agent_connect", `${agentKey} agent'ına bağlanılıyor...`, "running");
+    // Step 4: Agent call
+    step("🔌", "Agent", `${agentKey} bağlantısı başlatıldı`);
 
     return new Promise((resolve, reject) => {
       const body = JSON.stringify({ model: "openclaw", messages, user: sessionKey, stream: true });
       let fullText = "";
-      let firstChunk = true;
-      let chunkCount = 0;
 
       const req = http.request({
         hostname: GATEWAY_HOST, port: GATEWAY_PORT,
@@ -86,10 +76,9 @@ class ChatOrchestrator {
         },
         timeout: 120000
       }, proxyRes => {
-        this._sendActivity(res, "agent_connect", `${agentKey} bağlantısı kuruldu (HTTP ${proxyRes.statusCode})`, "done");
-        this._sendActivity(res, "agent_thinking", "Agent düşünüyor...", "running");
-        
+        step("📡", "Bağlantı", `HTTP ${proxyRes.statusCode}`);
         let buffer = "";
+        let firstChunk = true;
 
         proxyRes.on("data", chunk => {
           buffer += chunk.toString();
@@ -100,20 +89,19 @@ class ChatOrchestrator {
             if (!line.startsWith("data: ")) continue;
             const data = line.slice(6).trim();
             if (data === "[DONE]") {
-              // Process memory tags
-              this._sendActivity(res, "memory_save", "Hafıza kontrol ediliyor...", "running");
+              if (firstChunk) step("💭", "Yanıt", "Boş yanıt");
+              
+              // Memory
               const { cleanResponse, saved } = UserMemory.parseAndSave(authContext.user_id, fullText);
               if (saved.length) {
-                this._sendActivity(res, "memory_save", `${saved.length} hafıza kaydedildi: ${saved.map(s => s.key).join(", ")}`, "done");
+                step("💾", "Hafıza kayıt", saved.map(s => s.key).join(", "));
                 console.log(`Memory saved for user ${authContext.user_id}:`, saved.map(s => `${s.category}:${s.key}`).join(", "));
-              } else {
-                this._sendActivity(res, "memory_save", "Yeni hafıza kaydı yok", "done");
               }
 
-              this._sendActivity(res, "db_save", "Mesaj veritabanına kaydediliyor...", "running");
-              // done event will trigger db save in server.js
-              
-              this._sendActivity(res, "complete", `Tamamlandı — ${chunkCount} chunk, ${fullText.length} karakter`, "done");
+              step("✅", "Tamamlandı", `${fullText.length} karakter, ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
+
+              // Send steps summary AFTER done
+              res.write(`data: ${JSON.stringify({ type: "steps", steps })}\n\n`);
               res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
               res.end();
               resolve({ reply: cleanResponse, usedTools });
@@ -124,16 +112,10 @@ class ChatOrchestrator {
               const delta = parsed.choices?.[0]?.delta?.content;
               if (delta) {
                 if (firstChunk) {
-                  this._sendActivity(res, "agent_thinking", "Agent düşünmeyi bitirdi", "done");
-                  this._sendActivity(res, "agent_streaming", "Yanıt akışı başladı...", "running");
+                  step("💭", "Agent yanıtı", "Akış başladı");
                   firstChunk = false;
                 }
                 fullText += delta;
-                chunkCount++;
-                // Update streaming activity every 10 chunks
-                if (chunkCount % 10 === 0) {
-                  this._sendActivity(res, "agent_streaming", `${chunkCount} chunk alındı (${fullText.length} karakter)`, "running");
-                }
                 if (!delta.includes("[HAFIZA_KAYDET")) {
                   res.write(`data: ${JSON.stringify({ type: "chunk", text: delta })}\n\n`);
                 }
@@ -144,9 +126,10 @@ class ChatOrchestrator {
 
         proxyRes.on("end", () => {
           if (!fullText) {
-            this._sendActivity(res, "fallback", "Agent yanıt vermedi, yedek yanıt kullanılıyor", "warning");
+            step("⚠️", "Yedek yanıt", "Agent yanıt vermedi");
             const fb = this._localFallback(authContext, toolData);
             res.write(`data: ${JSON.stringify({ type: "chunk", text: fb })}\n\n`);
+            res.write(`data: ${JSON.stringify({ type: "steps", steps })}\n\n`);
             res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
             res.end();
             resolve({ reply: fb, usedTools });
@@ -154,9 +137,10 @@ class ChatOrchestrator {
         });
 
         proxyRes.on("error", err => {
-          this._sendActivity(res, "error", `Agent hatası: ${err.message}`, "error");
+          step("❌", "Hata", err.message);
           const fb = this._localFallback(authContext, toolData);
           res.write(`data: ${JSON.stringify({ type: "chunk", text: fb })}\n\n`);
+          res.write(`data: ${JSON.stringify({ type: "steps", steps })}\n\n`);
           res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
           res.end();
           resolve({ reply: fb, usedTools });
@@ -164,9 +148,10 @@ class ChatOrchestrator {
       });
 
       req.on("error", err => {
-        this._sendActivity(res, "error", `Bağlantı hatası: ${err.message}`, "error");
+        step("❌", "Bağlantı hatası", err.message);
         const fb = this._localFallback(authContext, toolData);
         res.write(`data: ${JSON.stringify({ type: "chunk", text: fb })}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: "steps", steps })}\n\n`);
         res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
         res.end();
         resolve({ reply: fb, usedTools });
@@ -178,90 +163,71 @@ class ChatOrchestrator {
     });
   }
 
-  // Prefetch with activity events
-  _prefetchDataWithActivity(message, auth, usedTools, res) {
+  // Prefetch with step logging (no SSE writes)
+  _prefetchDataWithSteps(message, auth, usedTools, step) {
     const msg = message.toLowerCase();
     const r = {};
     try {
       if (auth.role === "student") {
-        this._sendActivity(res, "tool_call", "📋 get_self_profile — Öğrenci profili alınıyor", "running");
         r.profile = executeTool("get_self_profile", {}, auth); usedTools.push("get_self_profile");
-        this._sendActivity(res, "tool_call", `✅ Profil: ${r.profile?.full_name || "alındı"}`, "done");
+        step("🔧", "get_self_profile", r.profile?.full_name || "OK");
 
         if (msg.match(/sınav|sonuç|eksik|zayıf|performans|not|konu|tekrar|puan|başarı|durum/)) {
-          this._sendActivity(res, "tool_call", "📊 get_self_exam_results — Sınav sonuçları sorgulanıyor", "running");
           r.exams = executeTool("get_self_exam_results", { limit: 5 }, auth); usedTools.push("get_self_exam_results");
-          this._sendActivity(res, "tool_call", `✅ ${r.exams?.items?.length || 0} sınav bulundu`, "done");
-          
+          step("🔧", "get_self_exam_results", `${r.exams?.items?.length || 0} sınav`);
           if (r.exams?.items?.length > 0) {
-            this._sendActivity(res, "tool_call", "🎯 get_self_outcome_breakdown — Kazanım analizi yapılıyor", "running");
             r.outcomes = executeTool("get_self_outcome_breakdown", { exam_ids: r.exams.items.map(i => i.exam_id) }, auth); usedTools.push("get_self_outcome_breakdown");
-            this._sendActivity(res, "tool_call", `✅ Kazanım analizi tamamlandı`, "done");
+            step("🔧", "get_self_outcome_breakdown", "Kazanım analizi");
           }
         }
         if (msg.match(/ödev|görev|teslim/)) {
-          this._sendActivity(res, "tool_call", "📝 get_self_assignments — Ödevler sorgulanıyor", "running");
           r.assignments = executeTool("get_self_assignments", { limit: 10 }, auth); usedTools.push("get_self_assignments");
-          this._sendActivity(res, "tool_call", `✅ ${r.assignments?.items?.length || 0} ödev bulundu`, "done");
+          step("🔧", "get_self_assignments", `${r.assignments?.items?.length || 0} ödev`);
         }
         if (msg.match(/plan|çalışma|program/) && !r.exams) {
-          this._sendActivity(res, "tool_call", "📊 get_self_exam_results — Çalışma planı için sınavlar", "running");
           r.exams = executeTool("get_self_exam_results", { limit: 3 }, auth); usedTools.push("get_self_exam_results");
-          this._sendActivity(res, "tool_call", `✅ ${r.exams?.items?.length || 0} sınav bulundu`, "done");
+          step("🔧", "get_self_exam_results", `${r.exams?.items?.length || 0} sınav`);
           if (r.exams?.items?.length > 0) {
-            this._sendActivity(res, "tool_call", "🎯 get_self_outcome_breakdown — Kazanım analizi", "running");
             r.outcomes = executeTool("get_self_outcome_breakdown", { exam_ids: r.exams.items.map(i => i.exam_id) }, auth); usedTools.push("get_self_outcome_breakdown");
-            this._sendActivity(res, "tool_call", `✅ Kazanım analizi tamamlandı`, "done");
+            step("🔧", "get_self_outcome_breakdown", "Kazanım analizi");
           }
         }
       } else if (auth.role === "teacher") {
-        this._sendActivity(res, "tool_call", "🏫 list_teacher_classes — Sınıflar listeleniyor", "running");
         r.classes = executeTool("list_teacher_classes", {}, auth); usedTools.push("list_teacher_classes");
-        this._sendActivity(res, "tool_call", `✅ ${r.classes?.classes?.length || 0} sınıf bulundu`, "done");
-        
+        step("🔧", "list_teacher_classes", `${r.classes?.classes?.length || 0} sınıf`);
         if (r.classes?.classes?.length > 0) {
           const cid = r.classes.classes[0].class_id;
           if (msg.match(/performans|başarı|zayıf|konu|kazanım|analiz/)) {
-            this._sendActivity(res, "tool_call", "🎯 get_class_outcome_breakdown — Sınıf kazanım analizi", "running");
             r.outcomes = executeTool("get_class_outcome_breakdown", { class_id: cid }, auth); usedTools.push("get_class_outcome_breakdown");
-            this._sendActivity(res, "tool_call", `✅ Kazanım analizi tamamlandı`, "done");
+            step("🔧", "get_class_outcome_breakdown", "Sınıf kazanım analizi");
           }
           if (msg.match(/sınav|sonuç|not/)) {
-            this._sendActivity(res, "tool_call", "📊 get_class_exam_results — Sınıf sınav sonuçları", "running");
             r.examResults = executeTool("get_class_exam_results", { class_id: cid }, auth); usedTools.push("get_class_exam_results");
-            this._sendActivity(res, "tool_call", `✅ Sınav sonuçları alındı`, "done");
+            step("🔧", "get_class_exam_results", "Sınıf sınav sonuçları");
           }
           if (msg.match(/öğrenci|liste/)) {
-            this._sendActivity(res, "tool_call", "👥 list_class_students — Öğrenci listesi", "running");
             r.students = executeTool("list_class_students", { class_id: cid }, auth); usedTools.push("list_class_students");
-            this._sendActivity(res, "tool_call", `✅ ${r.students?.students?.length || 0} öğrenci listelendi`, "done");
+            step("🔧", "list_class_students", `${r.students?.students?.length || 0} öğrenci`);
           }
         }
       } else if (auth.role === "parent") {
-        this._sendActivity(res, "tool_call", "👨‍👩‍👧 list_my_children — Çocuklar listeleniyor", "running");
         r.children = executeTool("list_my_children", {}, auth); usedTools.push("list_my_children");
-        this._sendActivity(res, "tool_call", `✅ ${r.children?.children?.length || 0} çocuk bulundu`, "done");
-        
+        step("🔧", "list_my_children", `${r.children?.children?.length || 0} çocuk`);
         if (r.children?.children?.length > 0) {
           const cid = r.children.children[0].child_id;
-          this._sendActivity(res, "tool_call", "📊 get_child_exam_results — Çocuk sınav sonuçları", "running");
           r.exams = executeTool("get_child_exam_results", { child_id: cid, limit: 5 }, auth); usedTools.push("get_child_exam_results");
-          this._sendActivity(res, "tool_call", `✅ ${r.exams?.items?.length || 0} sınav bulundu`, "done");
-          
-          this._sendActivity(res, "tool_call", "📅 get_child_attendance — Devamsızlık bilgisi", "running");
+          step("🔧", "get_child_exam_results", `${r.exams?.items?.length || 0} sınav`);
           r.attendance = executeTool("get_child_attendance", { child_id: cid }, auth); usedTools.push("get_child_attendance");
-          this._sendActivity(res, "tool_call", `✅ Devamsızlık bilgisi alındı`, "done");
-          
+          step("🔧", "get_child_attendance", "Devamsızlık bilgisi");
           if (msg.match(/ödev/)) {
-            this._sendActivity(res, "tool_call", "📝 get_child_assignments — Çocuk ödevleri", "running");
             r.assignments = executeTool("get_child_assignments", { child_id: cid, limit: 10 }, auth); usedTools.push("get_child_assignments");
-            this._sendActivity(res, "tool_call", `✅ ${r.assignments?.items?.length || 0} ödev bulundu`, "done");
+            step("🔧", "get_child_assignments", `${r.assignments?.items?.length || 0} ödev`);
           }
         }
       }
-    } catch (e) { 
-      this._sendActivity(res, "tool_error", `Hata: ${e.message}`, "error");
-      console.error("Prefetch error:", e.message); 
+    } catch (e) {
+      step("❌", "Tool hatası", e.message);
+      console.error("Prefetch error:", e.message);
     }
     return r;
   }

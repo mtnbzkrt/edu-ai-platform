@@ -6,7 +6,7 @@
 <title>Eğitim AI Platformu</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#f8fafc;--card:#fff;--border:#e2e8f0;--text:#1e293b;--text2:#64748b;--primary:#3b82f6;--primary-hover:#2563eb;--green:#22c55e;--red:#ef4444;--yellow:#f59e0b;--sidebar-bg:#1e293b;--sidebar-text:#e2e8f0;--safe-bottom:env(safe-area-inset-bottom,0px);--activity-bg:#f1f5f9;--activity-border:#cbd5e1}
+:root{--bg:#f8fafc;--card:#fff;--border:#e2e8f0;--text:#1e293b;--text2:#64748b;--primary:#3b82f6;--primary-hover:#2563eb;--green:#22c55e;--red:#ef4444;--yellow:#f59e0b;--sidebar-bg:#1e293b;--sidebar-text:#e2e8f0;--safe-bottom:env(safe-area-inset-bottom,0px)}
 body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);height:100dvh;overflow:hidden}
 
 /* Login */
@@ -36,15 +36,13 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 .role-student{background:var(--green)}
 .role-teacher{background:var(--primary)}
 .role-parent{background:var(--yellow);color:#1e293b}
-.header .activity-toggle{padding:6px 12px;border:1px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-size:12px;white-space:nowrap;flex-shrink:0;display:flex;align-items:center;gap:4px}
-.header .activity-toggle.active{background:#eef2ff;border-color:var(--primary);color:var(--primary)}
 .header .logout-btn{padding:6px 12px;border:1px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-size:12px;white-space:nowrap;flex-shrink:0}
 
 /* Main content */
 .main-content{display:flex;flex:1;overflow:hidden;min-height:0;position:relative}
 
 /* Sidebar */
-.sidebar{width:240px;background:var(--sidebar-bg);color:var(--sidebar-text);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}
+.sidebar{width:280px;background:var(--sidebar-bg);color:var(--sidebar-text);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}
 .sidebar h3{padding:14px 16px 6px;font-size:12px;text-transform:uppercase;color:#94a3b8;letter-spacing:.5px}
 .sidebar .new-session{margin:8px 12px;padding:10px;background:rgba(255,255,255,.1);border:1px dashed rgba(255,255,255,.2);border-radius:8px;color:#e2e8f0;cursor:pointer;text-align:center;font-size:13px}
 .sessions-list{flex:1;overflow-y:auto;padding:4px 8px}
@@ -55,41 +53,6 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 
 /* Overlay for mobile sidebar */
 .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99}
-
-/* Activity Panel */
-.activity-panel{width:320px;background:var(--activity-bg);border-right:1px solid var(--activity-border);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;transition:width .25s ease}
-.activity-panel.collapsed{width:0;border-right:none}
-.activity-header{padding:12px 16px;border-bottom:1px solid var(--activity-border);display:flex;align-items:center;justify-content:space-between;background:#fff;flex-shrink:0}
-.activity-header h3{font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px}
-.activity-header .clear-btn{padding:4px 8px;border:1px solid var(--border);border-radius:4px;background:#fff;cursor:pointer;font-size:11px;color:var(--text2)}
-.activity-feed{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:2px}
-
-/* Activity items */
-.activity-item{padding:6px 10px;border-radius:6px;font-size:12px;line-height:1.4;display:flex;align-items:flex-start;gap:8px;animation:slideIn .2s ease}
-@keyframes slideIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)}}
-.activity-item .activity-icon{flex-shrink:0;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:11px;border-radius:50%;margin-top:1px}
-.activity-item .activity-body{flex:1;min-width:0}
-.activity-item .activity-detail{color:var(--text);word-break:break-word}
-.activity-item .activity-time{font-size:10px;color:#94a3b8;margin-top:1px}
-
-/* Activity states */
-.activity-item.running{background:#eff6ff}
-.activity-item.running .activity-icon{background:#dbeafe;color:#3b82f6}
-.activity-item.done{background:#f0fdf4}
-.activity-item.done .activity-icon{background:#dcfce7;color:#16a34a}
-.activity-item.error{background:#fef2f2}
-.activity-item.error .activity-icon{background:#fee2e2;color:#dc2626}
-.activity-item.warning{background:#fffbeb}
-.activity-item.warning .activity-icon{background:#fef3c7;color:#d97706}
-
-/* Spinner for running items */
-.activity-item.running .activity-icon::after{content:"";width:12px;height:12px;border:2px solid #93c5fd;border-top-color:#3b82f6;border-radius:50%;animation:spin .6s linear infinite;position:absolute}
-.activity-item.running .activity-icon{position:relative}
-
-@keyframes spin{to{transform:rotate(360deg)}}
-
-/* Activity separator */
-.activity-separator{padding:4px 10px;font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-top:4px;border-top:1px solid var(--activity-border)}
 
 /* Chat area */
 .chat-area{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
@@ -119,6 +82,20 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 .typing-text::after{content:'';animation:dots 1.5s infinite}
 @keyframes dots{0%{content:''}33%{content:'.'}66%{content:'..'}100%{content:'...'}}
 
+/* Steps summary (shown after response) */
+.steps-summary{margin-top:8px;background:#f8fafc;border:1px solid var(--border);border-radius:10px;overflow:hidden;font-size:12px}
+.steps-toggle{display:flex;align-items:center;gap:6px;padding:8px 12px;cursor:pointer;color:var(--text2);user-select:none}
+.steps-toggle:hover{background:#f1f5f9}
+.steps-toggle .arrow{transition:transform .2s;font-size:10px}
+.steps-toggle .arrow.open{transform:rotate(90deg)}
+.steps-list{display:none;padding:0 12px 10px;flex-direction:column;gap:3px}
+.steps-list.open{display:flex}
+.step-item{display:flex;align-items:center;gap:8px;padding:4px 0;color:var(--text)}
+.step-item .step-icon{font-size:13px;width:20px;text-align:center;flex-shrink:0}
+.step-item .step-label{font-weight:500;flex-shrink:0}
+.step-item .step-detail{color:var(--text2);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.step-item .step-time{color:#94a3b8;font-size:11px;flex-shrink:0}
+
 /* Chat input */
 .chat-input{padding:12px 16px;padding-bottom:calc(12px + var(--safe-bottom));border-top:1px solid var(--border);background:#fff;display:flex;gap:8px;flex-shrink:0}
 .chat-input input{flex:1;padding:10px 14px;border:1px solid var(--border);border-radius:22px;font-size:16px;outline:none;-webkit-appearance:none}
@@ -135,12 +112,9 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 /* Mobile */
 @media(max-width:768px){
   .header .menu-btn{display:block}
-  .sidebar{position:fixed;left:-240px;top:0;bottom:0;z-index:100;transition:left .25s ease}
+  .sidebar{position:fixed;left:-280px;top:0;bottom:0;z-index:100;transition:left .25s ease}
   .sidebar.open{left:0}
   .sidebar-overlay.show{display:block}
-  .activity-panel{position:fixed;left:0;top:52px;bottom:0;z-index:98;width:280px;transform:translateX(-100%);transition:transform .25s ease}
-  .activity-panel.mobile-open{transform:translateX(0)}
-  .activity-panel.collapsed{transform:translateX(-100%)}
   .tools-grid{grid-template-columns:1fr}
   .msg{max-width:92%}
   .fab{display:flex}
@@ -182,7 +156,6 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
       <span class="user-name" id="userName"></span>
       <span class="role-badge" id="roleBadge"></span>
     </div>
-    <button class="activity-toggle" id="activityToggle" onclick="toggleActivity()">⚡ İşlem Akışı</button>
     <button class="logout-btn" onclick="logout()">Çıkış</button>
   </div>
 
@@ -192,19 +165,6 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
       <h3>💬 Konuşmalar</h3>
       <div class="new-session" onclick="newSession()">+ Yeni Konuşma</div>
       <div class="sessions-list" id="sessionsList"></div>
-    </div>
-
-    <!-- Activity Panel -->
-    <div class="activity-panel" id="activityPanel">
-      <div class="activity-header">
-        <h3>⚡ İşlem Akışı</h3>
-        <button class="clear-btn" onclick="clearActivity()">Temizle</button>
-      </div>
-      <div class="activity-feed" id="activityFeed">
-        <div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px">
-          Bir mesaj gönderdiğinizde<br>arka plandaki işlemler<br>burada görünecek ⚡
-        </div>
-      </div>
     </div>
 
     <div class="chat-area">
@@ -231,90 +191,28 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 
 <script>
 let TOKEN=null, USER=null, CURRENT_SESSION=null;
-let activityVisible = true;
-let requestStartTime = null;
 const API=window.location.origin;
 
-// Activity Panel
-function toggleActivity(){
-  activityVisible = !activityVisible;
-  const panel = document.getElementById("activityPanel");
-  const btn = document.getElementById("activityToggle");
-  if(activityVisible){
-    panel.classList.remove("collapsed");
-    panel.classList.add("mobile-open");
-    btn.classList.add("active");
-  } else {
-    panel.classList.add("collapsed");
-    panel.classList.remove("mobile-open");
-    btn.classList.remove("active");
-  }
-}
-
-function clearActivity(){
-  document.getElementById("activityFeed").innerHTML = `
-    <div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px">
-      Bir mesaj gönderdiğinizde<br>arka plandaki işlemler<br>burada görünecek ⚡
+function renderSteps(steps){
+  if(!steps||!steps.length) return "";
+  const id = "steps-"+Date.now();
+  let html = `<div class="steps-summary">
+    <div class="steps-toggle" onclick="document.getElementById('${id}').classList.toggle('open');this.querySelector('.arrow').classList.toggle('open')">
+      <span class="arrow">▶</span>
+      <span>⚡ ${steps.length} adım — ${steps[steps.length-1]?.detail || ""}</span>
+    </div>
+    <div class="steps-list" id="${id}">`;
+  for(const s of steps){
+    const time = s.ts != null ? `${(s.ts/1000).toFixed(1)}s` : "";
+    html += `<div class="step-item">
+      <span class="step-icon">${s.icon}</span>
+      <span class="step-label">${s.label}</span>
+      <span class="step-detail">${s.detail}</span>
+      <span class="step-time">${time}</span>
     </div>`;
-}
-
-function addActivityItem(step, detail, status){
-  const feed = document.getElementById("activityFeed");
-  
-  // Remove placeholder if exists
-  const placeholder = feed.querySelector("[style*='text-align:center']");
-  if(placeholder) placeholder.remove();
-  
-  const icons = {
-    auth: "🔐", session: "📂", tools_start: "🔍", tools_done: "✅", tool_call: "🔧",
-    tool_error: "❌", memory_load: "🧠", memory_save: "💾", build_prompt: "📝",
-    agent_connect: "🔌", agent_thinking: "💭", agent_streaming: "📡",
-    db_save: "💿", complete: "🎉", fallback: "⚠️", error: "❌", user_msg: "👤"
-  };
-
-  // For running items, check if we should update an existing one
-  const existingId = `activity-${step}`;
-  const existing = document.getElementById(existingId);
-  if(existing && status !== "done"){
-    existing.querySelector(".activity-detail").textContent = detail;
-    return;
   }
-  
-  // If done, update the running version
-  if(existing && status === "done"){
-    existing.className = `activity-item ${status}`;
-    existing.querySelector(".activity-detail").textContent = detail;
-    // Calculate elapsed time
-    const elapsed = requestStartTime ? ((Date.now() - requestStartTime) / 1000).toFixed(1) : null;
-    if(elapsed) existing.querySelector(".activity-time").textContent = `+${elapsed}s`;
-    return;
-  }
-
-  const elapsed = requestStartTime ? ((Date.now() - requestStartTime) / 1000).toFixed(1) : "0.0";
-
-  const item = document.createElement("div");
-  item.className = `activity-item ${status}`;
-  item.id = existingId;
-  item.innerHTML = `
-    <div class="activity-icon">${icons[step] || "⚙️"}</div>
-    <div class="activity-body">
-      <div class="activity-detail">${detail}</div>
-      <div class="activity-time">+${elapsed}s</div>
-    </div>`;
-  
-  feed.appendChild(item);
-  feed.scrollTop = feed.scrollHeight;
-}
-
-function addActivitySeparator(text){
-  const feed = document.getElementById("activityFeed");
-  const placeholder = feed.querySelector("[style*='text-align:center']");
-  if(placeholder) placeholder.remove();
-  
-  const sep = document.createElement("div");
-  sep.className = "activity-separator";
-  sep.textContent = text;
-  feed.appendChild(sep);
+  html += `</div></div>`;
+  return html;
 }
 
 function quickLogin(u,p){document.getElementById("loginUser").value=u;document.getElementById("loginPass").value=p;login()}
@@ -334,8 +232,6 @@ async function login(){
     badge.textContent={student:"Öğrenci",teacher:"Öğretmen",parent:"Veli",admin:"Admin"}[USER.role];
     badge.className="role-badge role-"+USER.role;
     loadSessions();loadToolsGrid();
-    // Set activity panel initial state
-    document.getElementById("activityToggle").classList.add("active");
   }catch(e){document.getElementById("loginError").textContent="Bağlantı hatası"}
 }
 
@@ -345,7 +241,6 @@ function logout(){
   document.getElementById("app").style.display="none";
   document.getElementById("chatView").classList.remove("visible");
   document.getElementById("welcomeScreen").style.display="flex";
-  clearActivity();
 }
 
 function toggleSidebar(){
@@ -418,12 +313,6 @@ async function sendMessage(){
   const el=document.getElementById("messages");
   el.innerHTML+=renderMessage({role:"user",content:msg});
   
-  // Activity: new request
-  requestStartTime = Date.now();
-  const timeStr = new Date().toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
-  addActivitySeparator(`Yeni istek — ${timeStr}`);
-  addActivityItem("user_msg", `"${msg.length > 50 ? msg.slice(0,50)+'...' : msg}"`, "done");
-
   const assistantId="msg-"+Date.now();
   el.innerHTML+=`<div class="msg assistant" id="${assistantId}"><span class="typing-text">AI düşünüyor</span></div>`;
   el.scrollTop=el.scrollHeight;
@@ -431,6 +320,7 @@ async function sendMessage(){
 
   let fullText="";
   let usedTools=[];
+  let steps=[];
 
   try{
     const response=await fetch(API+"/api/ai/chat/stream",{
@@ -442,7 +332,6 @@ async function sendMessage(){
     if(!response.ok){
       const err=await response.json();
       document.getElementById(assistantId).innerHTML="⚠️ "+(err.error?.message||"Hata");
-      addActivityItem("error", `HTTP ${response.status}: ${err.error?.message||"Hata"}`, "error");
       document.getElementById("sendBtn").disabled=false;
       return;
     }
@@ -463,13 +352,10 @@ async function sendMessage(){
         if(!line.startsWith("data: "))continue;
         try{
           const data=JSON.parse(line.slice(6));
-          
-          // Handle activity events
-          if(data.type==="activity"){
-            addActivityItem(data.step, data.detail, data.status);
-          }
-          else if(data.type==="tools"){
+          if(data.type==="tools"){
             usedTools=data.tools;
+          }else if(data.type==="steps"){
+            steps=data.steps||[];
           }else if(data.type==="chunk"){
             fullText+=data.text;
             let display=fullText.replace(/\[HAFIZA_KAYDET:[^\]]+\]/g,"").trim();
@@ -482,18 +368,24 @@ async function sendMessage(){
             el.scrollTop=el.scrollHeight;
           }else if(data.type==="done"){
             let display=fullText.replace(/\[HAFIZA_KAYDET:[^\]]+\]/g,"").trim();
-            document.getElementById(assistantId).innerHTML=renderMessage({role:"assistant",content:display,used_tools:usedTools}).replace(/^<div class="msg assistant">/,'').replace(/<\/div>$/,'');
+            let tools="";
+            if(usedTools.length)tools=`<div class="tools-used">${usedTools.map(t=>`<span>🔧 ${t}</span>`).join("")}</div>`;
+            let stepsHtml=renderSteps(steps);
+            // Render final message content
+            let rendered=display;
+            rendered=rendered.replace(/```[\s\S]*?```/g,s=>'<pre><code>'+s.slice(3,-3).replace(/^[a-z]*\n/,'')+'</code></pre>');
+            rendered=rendered.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
+            rendered=rendered.replace(/\n/g,'<br>');
+            document.getElementById(assistantId).innerHTML=rendered+tools+stepsHtml;
             el.scrollTop=el.scrollHeight;
           }else if(data.type==="error"){
             document.getElementById(assistantId).innerHTML="⚠️ "+data.message;
-            addActivityItem("error", data.message, "error");
           }
         }catch{}
       }
     }
   }catch(e){
     document.getElementById(assistantId).innerHTML="⚠️ Bağlantı hatası";
-    addActivityItem("error", "Bağlantı hatası: "+e.message, "error");
   }
 
   el.scrollTop=el.scrollHeight;
