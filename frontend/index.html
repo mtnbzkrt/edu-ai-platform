@@ -306,7 +306,7 @@ async function sendMessage(){
         }catch{}
       }
     }
-  }catch(e){document.getElementById(assistantId).innerHTML="⚠️ Bağlantı hatası"}
+  }catch(e){document.getElementById(assistantId).innerHTML="⚠️ Bağlantı hatası — <a href=\"#\" onclick=\"this.parentElement.remove();document.getElementById(\\\"chatInput\\\").value=msg;sendMessage();return false\" style=\"color:var(--primary)\">tekrar dene</a>"}
 
   el.scrollTop=el.scrollHeight;
   document.getElementById("sendBtn").disabled=false;
