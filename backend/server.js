@@ -11,7 +11,7 @@ const { buildAuthContext } = require("./src/ai/context/auth-context");
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, "../frontend")));
+app.use(express.static(path.join(__dirname, "../frontend"), { etag: false, lastModified: false, setHeaders: (res) => { res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate"); res.setHeader("Pragma", "no-cache"); res.setHeader("Expires", "0"); } }));
 
 const JWT_SECRET = process.env.JWT_SECRET || "edu-ai-secret-key-2026";
 const PORT = process.env.PORT || 3080;
