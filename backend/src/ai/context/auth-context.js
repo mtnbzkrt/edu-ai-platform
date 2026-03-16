@@ -1,7 +1,3 @@
-/**
- * AuthContextBuilder - Builds auth context from JWT user
- * Maps platform user to business entity (student/teacher/parent)
- */
 const Database = require("better-sqlite3");
 const path = require("path");
 
@@ -9,7 +5,9 @@ function buildAuthContext(user, sessionId) {
   const db = new Database(path.join(__dirname, "../../data/school.db"));
   const ctx = {
     user_id: user.id || user.user_id,
+    username: user.username,
     role: user.role,
+    full_name: user.full_name,
     school_id: "school_main",
     actor_id: null,
     session_id: sessionId,

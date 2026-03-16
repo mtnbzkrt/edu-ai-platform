@@ -1,47 +1,125 @@
 const http = require("http");
-const { executeTool } = require("../tools/tool-registry");
+const jwt = require("jsonwebtoken");
 const UserMemory = require("../memory/user-memory");
 
 const GATEWAY_HOST = process.env.OPENCLAW_GATEWAY_HOST || "10.0.0.1";
 const GATEWAY_PORT = process.env.OPENCLAW_GATEWAY_PORT || 18790;
 const GATEWAY_TOKEN = process.env.OPENCLAW_GATEWAY_TOKEN || "bc433d5343886a5a34602fa85b0c91b6720e9b9f12dc80a0";
+const JWT_SECRET = process.env.JWT_SECRET || "edu-ai-secret-key-2026";
+const EDU_API_URL = process.env.EDU_API_URL || "https://edu.getinstaapp.com";
+const TOOL_SCRIPT = "/home/bozkurt/.openclaw/workspace/edu-ai-platform/tools/edu-tool.js";
 
 class ChatOrchestrator {
-  async processMessage(message, authContext, sessionContext, previousMessages) {
-    const agentKey = sessionContext.agent_key || this._getAgentKey(authContext.role);
-    const usedTools = [];
-    const toolData = this._prefetchData(message, authContext, usedTools);
-    const memoryContext = UserMemory.buildContext(authContext.user_id);
-    const messages = this._buildMessages(message, authContext, toolData, usedTools, previousMessages, memoryContext);
-    const sessionKey = `edu:${authContext.role}:${authContext.user_id}:${agentKey}`;
 
-    let reply;
-    try {
-      reply = await this._callAgentHTTP(agentKey, sessionKey, messages, false);
-    } catch (err) {
-      console.error("Agent error:", err.message);
-      reply = this._localFallback(authContext, toolData);
-    }
-
-    const { cleanResponse, saved } = UserMemory.parseAndSave(authContext.user_id, reply);
-    return { reply: cleanResponse, usedTools };
+  // Generate a short-lived JWT for the agent to use with tool calls
+  _generateAgentToken(authContext) {
+    return jwt.sign({
+      user_id: authContext.user_id,
+      username: authContext.username,
+      role: authContext.role,
+      full_name: authContext.full_name
+    }, JWT_SECRET, { expiresIn: "10m" });
   }
 
-  async processMessageStream(message, authContext, sessionContext, previousMessages, res) {
-    const startTime = Date.now();
-    const agentKey = sessionContext.agent_key || this._getAgentKey(authContext.role);
-
-    const usedTools = [];
-    const toolData = this._prefetchData(message, authContext, usedTools);
+  // Build minimal system prompt — agent decides what tools to call
+  _buildSystemPrompt(authContext) {
+    const agentToken = this._generateAgentToken(authContext);
     const memoryContext = UserMemory.buildContext(authContext.user_id);
-    const messages = this._buildMessages(message, authContext, toolData, usedTools, previousMessages, memoryContext);
+
+    const toolDocs = this._getToolDocs(authContext.role);
+
+    let sys = `Sen bir eğitim AI asistanısın.
+Kullanıcı: ${authContext.full_name || "Bilinmiyor"} (rol: ${authContext.role})
+
+## Dil ve Üslup
+Türkçe konuş. Pedagojik dil kullan, cesaretlendirici ol.
+Ham veriyi gösterme, yorumlayarak açıkla.
+
+## Veri Erişimi — Tool Kullanımı
+Öğrencinin sınavları, ödevleri, performansı gibi verilere erişmek için tool çağırmalısın.
+Verileri TAHMIN ETME veya UYDURMA — her zaman tool ile gerçek veriyi çek.
+
+Tool çağırmak için exec aracını kullanarak şu komutu çalıştır:
+
+node ${TOOL_SCRIPT} <tool_adı> [--parametre değer ...] --token ${agentToken}
+
+### Kullanabileceğin Tool'lar:
+${toolDocs}
+
+### Kurallar:
+1. Kullanıcı veri gerektiren bir şey soruyorsa (sınav, ödev, performans, plan), ÖNCE ilgili tool'u çağır.
+2. Basit sohbet veya konu anlatımı için tool çağırmana gerek yok.
+3. Tool sonucunu ham JSON olarak gösterme — yorumla, özetle, anlaşılır hale getir.
+4. Bir seferde sadece ihtiyacın olan tool'ları çağır, hepsini birden çağırma.
+5. Tool hata dönerse, kullanıcıya nazikçe açıkla.
+
+## Hafıza Sistemi
+Kullanıcı hakkında önemli bilgiler öğrendiğinde yanıtının SONUNA etiket ekle:
+[HAFIZA_KAYDET:kategori:anahtar:değer]
+Kategoriler: preferences, learning_style, strengths, weaknesses, goals, notes, personality
+${memoryContext}`;
+
+    return sys;
+  }
+
+  _getToolDocs(role) {
+    if (role === "student") {
+      return `
+- get_self_profile — Kendi profil bilgin
+- get_self_exam_results [--limit N] [--subject S] — Sınav sonuçları
+- get_self_assignments [--limit N] [--status pending|completed] — Ödevler
+- get_self_outcome_breakdown [--exam_ids 1,2,3] [--subject S] — Kazanım bazlı analiz
+
+Örnek:
+  node ${TOOL_SCRIPT} get_self_exam_results --limit 3 --token <TOKEN>
+  node ${TOOL_SCRIPT} get_self_outcome_breakdown --exam_ids 1,2 --token <TOKEN>`;
+    }
+    if (role === "teacher") {
+      return `
+- list_teacher_classes — Sınıflarını listele
+- list_class_students --class_id N — Sınıftaki öğrenciler
+- get_class_exam_results --class_id N [--subject S] — Sınıf sınav sonuçları
+- get_class_outcome_breakdown --class_id N [--subject S] — Sınıf kazanım analizi
+- get_student_exam_results --student_id N [--limit N] — Tek öğrenci sınavları
+
+Örnek:
+  node ${TOOL_SCRIPT} list_teacher_classes --token <TOKEN>
+  node ${TOOL_SCRIPT} get_class_exam_results --class_id 1 --token <TOKEN>`;
+    }
+    if (role === "parent") {
+      return `
+- list_my_children — Çocuklarını listele
+- get_child_exam_results --child_id N [--limit N] — Çocuğun sınav sonuçları
+- get_child_assignments --child_id N [--limit N] — Çocuğun ödevleri
+- get_child_attendance --child_id N — Çocuğun devamsızlığı
+
+Örnek:
+  node ${TOOL_SCRIPT} list_my_children --token <TOKEN>
+  node ${TOOL_SCRIPT} get_child_exam_results --child_id 3 --limit 5 --token <TOKEN>`;
+    }
+    return "Tool bulunmuyor.";
+  }
+
+  // Streaming — agent runs tools autonomously via Gateway
+  async processMessageStream(message, authContext, sessionContext, previousMessages, res) {
+    const agentKey = sessionContext.agent_key || this._getAgentKey(authContext.role);
     const sessionKey = `edu:${authContext.role}:${authContext.user_id}:${agentKey}`;
 
-    // Send the full prompt to frontend (for left panel)
-    res.write(`data: ${JSON.stringify({ type: "prompt", agent: agentKey, session_key: sessionKey, messages })}\n\n`);
+    // Build messages — minimal, agent-driven
+    const messages = [];
+    messages.push({ role: "system", content: this._buildSystemPrompt(authContext) });
+    
+    // Add previous conversation context
+    if (previousMessages?.length > 0) {
+      for (const msg of previousMessages.slice(-10)) {
+        messages.push({ role: msg.role, content: msg.content });
+      }
+    }
+    messages.push({ role: "user", content: message });
 
-    // Send tools info
-    res.write(`data: ${JSON.stringify({ type: "tools", tools: usedTools })}\n\n`);
+    // Send prompt to frontend for display
+    res.write(`data: ${JSON.stringify({ type: "prompt", agent: agentKey, session_key: sessionKey, messages })}\n\n`);
+    res.write(`data: ${JSON.stringify({ type: "tools", tools: [] })}\n\n`);
 
     return new Promise((resolve, reject) => {
       const body = JSON.stringify({ model: "openclaw", messages, user: sessionKey, stream: true });
@@ -57,7 +135,7 @@ class ChatOrchestrator {
           "x-openclaw-session-key": sessionKey,
           "Content-Length": Buffer.byteLength(body)
         },
-        timeout: 120000
+        timeout: 180000 // longer timeout — agent may call tools
       }, proxyRes => {
         let buffer = "";
 
@@ -74,7 +152,7 @@ class ChatOrchestrator {
               if (saved.length) console.log(`Memory saved for user ${authContext.user_id}:`, saved.map(s => `${s.category}:${s.key}`).join(", "));
               res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
               res.end();
-              resolve({ reply: cleanResponse, usedTools });
+              resolve({ reply: cleanResponse, usedTools: ["agent-autonomous"] });
               return;
             }
             try {
@@ -92,35 +170,63 @@ class ChatOrchestrator {
 
         proxyRes.on("end", () => {
           if (!fullText) {
-            const fb = this._localFallback(authContext, toolData);
+            const fb = `Merhaba! 👋 Size nasıl yardımcı olabilirim?`;
             res.write(`data: ${JSON.stringify({ type: "chunk", text: fb })}\n\n`);
             res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
             res.end();
-            resolve({ reply: fb, usedTools });
+            resolve({ reply: fb, usedTools: [] });
           }
         });
 
         proxyRes.on("error", err => {
-          const fb = this._localFallback(authContext, toolData);
+          console.error("Stream error:", err.message);
+          const fb = `Bağlantı sorunu yaşandı, lütfen tekrar deneyin.`;
           res.write(`data: ${JSON.stringify({ type: "chunk", text: fb })}\n\n`);
           res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
           res.end();
-          resolve({ reply: fb, usedTools });
+          resolve({ reply: fb, usedTools: [] });
         });
       });
 
       req.on("error", err => {
-        const fb = this._localFallback(authContext, toolData);
+        console.error("Request error:", err.message);
+        const fb = `Bağlantı sorunu yaşandı, lütfen tekrar deneyin.`;
         res.write(`data: ${JSON.stringify({ type: "chunk", text: fb })}\n\n`);
         res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
         res.end();
-        resolve({ reply: fb, usedTools });
+        resolve({ reply: fb, usedTools: [] });
       });
 
       req.on("timeout", () => { req.destroy(); });
       req.write(body);
       req.end();
     });
+  }
+
+  // Non-streaming fallback
+  async processMessage(message, authContext, sessionContext, previousMessages) {
+    const agentKey = sessionContext.agent_key || this._getAgentKey(authContext.role);
+    const sessionKey = `edu:${authContext.role}:${authContext.user_id}:${agentKey}`;
+    
+    const messages = [];
+    messages.push({ role: "system", content: this._buildSystemPrompt(authContext) });
+    if (previousMessages?.length > 0) {
+      for (const msg of previousMessages.slice(-10)) {
+        messages.push({ role: msg.role, content: msg.content });
+      }
+    }
+    messages.push({ role: "user", content: message });
+
+    let reply;
+    try {
+      reply = await this._callAgentHTTP(agentKey, sessionKey, messages);
+    } catch (err) {
+      console.error("Agent error:", err.message);
+      reply = `Merhaba! 👋 Size nasıl yardımcı olabilirim?`;
+    }
+
+    const { cleanResponse, saved } = UserMemory.parseAndSave(authContext.user_id, reply);
+    return { reply: cleanResponse, usedTools: ["agent-autonomous"] };
   }
 
   _callAgentHTTP(agentKey, sessionKey, messages) {
@@ -130,7 +236,7 @@ class ChatOrchestrator {
         hostname: GATEWAY_HOST, port: GATEWAY_PORT,
         path: "/v1/chat/completions", method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": "Bearer " + GATEWAY_TOKEN, "x-openclaw-agent-id": agentKey, "x-openclaw-session-key": sessionKey, "Content-Length": Buffer.byteLength(body) },
-        timeout: 90000
+        timeout: 180000
       }, res => {
         let data = "";
         res.on("data", c => data += c);
@@ -141,62 +247,6 @@ class ChatOrchestrator {
       req.write(body);
       req.end();
     });
-  }
-
-  _prefetchData(message, auth, usedTools) {
-    const msg = message.toLowerCase();
-    const r = {};
-    try {
-      if (auth.role === "student") {
-        r.profile = executeTool("get_self_profile", {}, auth); usedTools.push("get_self_profile");
-        if (msg.match(/sınav|sonuç|eksik|zayıf|performans|not|konu|tekrar|puan|başarı|durum/)) {
-          r.exams = executeTool("get_self_exam_results", { limit: 5 }, auth); usedTools.push("get_self_exam_results");
-          if (r.exams?.items?.length > 0) { r.outcomes = executeTool("get_self_outcome_breakdown", { exam_ids: r.exams.items.map(i => i.exam_id) }, auth); usedTools.push("get_self_outcome_breakdown"); }
-        }
-        if (msg.match(/ödev|görev|teslim/)) { r.assignments = executeTool("get_self_assignments", { limit: 10 }, auth); usedTools.push("get_self_assignments"); }
-        if (msg.match(/plan|çalışma|program/) && !r.exams) {
-          r.exams = executeTool("get_self_exam_results", { limit: 3 }, auth); usedTools.push("get_self_exam_results");
-          if (r.exams?.items?.length > 0) { r.outcomes = executeTool("get_self_outcome_breakdown", { exam_ids: r.exams.items.map(i => i.exam_id) }, auth); usedTools.push("get_self_outcome_breakdown"); }
-        }
-      } else if (auth.role === "teacher") {
-        r.classes = executeTool("list_teacher_classes", {}, auth); usedTools.push("list_teacher_classes");
-        if (r.classes?.classes?.length > 0) {
-          const cid = r.classes.classes[0].class_id;
-          if (msg.match(/performans|başarı|zayıf|konu|kazanım|analiz/)) { r.outcomes = executeTool("get_class_outcome_breakdown", { class_id: cid }, auth); usedTools.push("get_class_outcome_breakdown"); }
-          if (msg.match(/sınav|sonuç|not/)) { r.examResults = executeTool("get_class_exam_results", { class_id: cid }, auth); usedTools.push("get_class_exam_results"); }
-          if (msg.match(/öğrenci|liste/)) { r.students = executeTool("list_class_students", { class_id: cid }, auth); usedTools.push("list_class_students"); }
-        }
-      } else if (auth.role === "parent") {
-        r.children = executeTool("list_my_children", {}, auth); usedTools.push("list_my_children");
-        if (r.children?.children?.length > 0) {
-          const cid = r.children.children[0].child_id;
-          r.exams = executeTool("get_child_exam_results", { child_id: cid, limit: 5 }, auth); usedTools.push("get_child_exam_results");
-          r.attendance = executeTool("get_child_attendance", { child_id: cid }, auth); usedTools.push("get_child_attendance");
-          if (msg.match(/ödev/)) { r.assignments = executeTool("get_child_assignments", { child_id: cid, limit: 10 }, auth); usedTools.push("get_child_assignments"); }
-        }
-      }
-    } catch (e) { console.error("Prefetch error:", e.message); }
-    return r;
-  }
-
-  _buildMessages(userMessage, auth, toolData, usedTools, previousMessages, memoryContext) {
-    const messages = [];
-    let sys = `Sen bir egitim AI asistanisin. Kullanici rolu: ${auth.role}.\nTurkce konusuyorsun. Pedagojik dil kullan, cesaretlendirici ol.\nHam veriyi gosterme, yorumlayarak acikla.\n\n`;
-    sys += `HAFIZA SISTEMI:\nKullanici hakkinda onemli bilgiler ogrendiginde yanitinin SONUNA etiket ekle:\n[HAFIZA_KAYDET:kategori:anahtar:deger]\nKategoriler: preferences, learning_style, strengths, weaknesses, goals, notes, personality\n`;
-    if (memoryContext) sys += memoryContext;
-    if (Object.keys(toolData).length > 0) {
-      sys += `\nOkul sisteminden alinan veriler:\n`;
-      for (const [k, v] of Object.entries(toolData)) sys += `--- ${k} ---\n${JSON.stringify(v, null, 2).slice(0, 1500)}\n`;
-    }
-    messages.push({ role: "system", content: sys });
-    if (previousMessages?.length > 0) for (const msg of previousMessages.slice(-10)) messages.push({ role: msg.role, content: msg.content });
-    messages.push({ role: "user", content: userMessage });
-    return messages;
-  }
-
-  _localFallback(auth, toolData) {
-    const name = toolData?.profile?.full_name || "";
-    return `Merhaba${name ? " " + name.split(" ")[0] : ""}! 👋 Size nasıl yardımcı olabilirim?`;
   }
 
   _getAgentKey(role) {
