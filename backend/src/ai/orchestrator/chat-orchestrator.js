@@ -125,7 +125,7 @@ ${memoryContext}`;
   _streamFromGateway(messages, res) {
     return new Promise((resolve, reject) => {
       const body = JSON.stringify({
-        model: "openclaw",
+        model: "anthropic/claude-sonnet-4-20250514",
         messages,
         stream: true
       });
@@ -181,7 +181,7 @@ ${memoryContext}`;
   // ── Gateway non-streaming call ──
   _callGateway(messages) {
     return new Promise((resolve, reject) => {
-      const body = JSON.stringify({ model: "openclaw", messages });
+      const body = JSON.stringify({ model: "anthropic/claude-sonnet-4-20250514", messages });
       const req = http.request({
         hostname: GATEWAY_HOST, port: GATEWAY_PORT,
         path: "/v1/chat/completions", method: "POST",
