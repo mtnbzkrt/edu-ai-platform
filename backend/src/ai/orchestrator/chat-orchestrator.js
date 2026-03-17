@@ -8,13 +8,6 @@ const GATEWAY_HOST = process.env.OPENCLAW_GATEWAY_HOST || "10.0.0.1";
 const GATEWAY_PORT = process.env.OPENCLAW_GATEWAY_PORT || 18790;
 const GATEWAY_TOKEN = process.env.OPENCLAW_GATEWAY_TOKEN || "bc433d5343886a5a34602fa85b0c91b6720e9b9f12dc80a0";
 
-// Agent mapping based on role
-const ROLE_AGENT_MAP = {
-  student: "learner-agent",
-  teacher: "teacher-agent",
-  parent: "parent-agent"
-};
-
 class ChatOrchestrator {
 
   // ── Detect which tools the AI should call based on message + conversation ──
@@ -128,11 +121,11 @@ Kategoriler: preferences, learning_style, strengths, weaknesses, goals, notes, p
 ${memoryContext}`;
   }
 
-  // ── Gateway streaming call (FIXED) ──
-  _streamFromGateway(messages, agentId, res) {
+  // ── Gateway streaming call ──
+  _streamFromGateway(messages, res) {
     return new Promise((resolve, reject) => {
       const body = JSON.stringify({
-        model: "openclaw",
+        model: "anthropic/claude-sonnet-4-20250514",
         messages,
         stream: true
       });
@@ -144,7 +137,6 @@ ${memoryContext}`;
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer " + GATEWAY_TOKEN,
-          "x-openclaw-agent-id": agentId,
           "Content-Length": Buffer.byteLength(body)
         },
         timeout: 120000
@@ -186,17 +178,16 @@ ${memoryContext}`;
     });
   }
 
-  // ── Gateway non-streaming call (FIXED) ──
-  _callGateway(messages, agentId) {
+  // ── Gateway non-streaming call ──
+  _callGateway(messages) {
     return new Promise((resolve, reject) => {
-      const body = JSON.stringify({ model: "openclaw", messages });
+      const body = JSON.stringify({ model: "anthropic/claude-sonnet-4-20250514", messages });
       const req = http.request({
         hostname: GATEWAY_HOST, port: GATEWAY_PORT,
         path: "/v1/chat/completions", method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer " + GATEWAY_TOKEN,
-          "x-openclaw-agent-id": agentId,
           "Content-Length": Buffer.byteLength(body)
         },
         timeout: 120000
@@ -219,19 +210,16 @@ ${memoryContext}`;
 
   // ══ MAIN: Streaming ══
   async processMessageStream(message, authContext, sessionContext, previousMessages, res) {
-    // 1. Get agent ID for this user role
-    const agentId = ROLE_AGENT_MAP[authContext.role] || "learner-agent";
-    
-    // 2. Detect tool needs
+    // 1. Detect tool needs
     const needs = this._detectToolNeeds(message, authContext.role, previousMessages);
     
-    // 3. Fetch data locally (fast, no gateway)
+    // 2. Fetch data locally (fast, no gateway)
     const { results: toolResults, usedTools } = this._fetchToolData(needs, authContext);
     
-    // 4. Signal stream start with tools info
+    // 3. Signal stream start with tools info
     res.write(`data: ${JSON.stringify({ type: "tools", tools: usedTools })}\n\n`);
 
-    // 5. Build messages
+    // 4. Build messages
     const messages = [];
     messages.push({ role: "system", content: this._buildSystemPrompt(authContext) });
 
@@ -245,9 +233,9 @@ ${memoryContext}`;
     const dataContext = this._buildDataContext(toolResults);
     messages.push({ role: "user", content: message + dataContext });
 
-    // 6. Stream from gateway with correct agent
+    // 5. Stream from gateway
     try {
-      const fullText = await this._streamFromGateway(messages, agentId, res);
+      const fullText = await this._streamFromGateway(messages, res);
       const { cleanResponse, saved } = UserMemory.parseAndSave(authContext.user_id, fullText);
       if (saved.length) console.log(`Memory saved for ${authContext.user_id}:`, saved.map(s => `${s.category}:${s.key}`).join(", "));
 
@@ -266,9 +254,6 @@ ${memoryContext}`;
 
   // ══ MAIN: Non-streaming ══
   async processMessage(message, authContext, sessionContext, previousMessages) {
-    // 1. Get agent ID for this user role
-    const agentId = ROLE_AGENT_MAP[authContext.role] || "learner-agent";
-    
     const needs = this._detectToolNeeds(message, authContext.role, previousMessages);
     const { results: toolResults, usedTools } = this._fetchToolData(needs, authContext);
 
@@ -284,7 +269,7 @@ ${memoryContext}`;
     messages.push({ role: "user", content: message + dataContext });
 
     try {
-      const reply = await this._callGateway(messages, agentId);
+      const reply = await this._callGateway(messages);
       const { cleanResponse, saved } = UserMemory.parseAndSave(authContext.user_id, reply);
       return { reply: cleanResponse || "Merhaba! 👋", usedTools };
     } catch (err) {
