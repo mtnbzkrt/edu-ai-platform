@@ -108,7 +108,7 @@ app.post("/api/ai/chat", authMiddleware, async (req, res) => {
   ).all(session_id);
 
   // Process through orchestrator
-  const orchestrator = require("./src/ai/orchestrator/chat-orchestrator");
+  const orchestrator = require("./src/ai/orchestrator/plugin-integrated-orchestrator");
   const startTime = Date.now();
   try {
     const result = await orchestrator.processMessage(message, authContext, {
@@ -165,7 +165,7 @@ app.post("/api/ai/chat/stream", authMiddleware, async (req, res) => {
   res.setHeader("Connection", "keep-alive");
   res.flushHeaders();
 
-  const orchestrator = require("./src/ai/orchestrator/chat-orchestrator");
+  const orchestrator = require("./src/ai/orchestrator/plugin-integrated-orchestrator");
   try {
     const result = await orchestrator.processMessageStream(message, authContext, { session_id, agent_key: session.agent_key }, prevMessages, res);
     db.prepare("INSERT INTO ai_messages (id, session_id, role, content, used_tools, created_at) VALUES (?, ?, 'assistant', ?, ?, datetime('now'))").run(uuidv4(), session_id, result.reply, JSON.stringify(result.usedTools || []));
