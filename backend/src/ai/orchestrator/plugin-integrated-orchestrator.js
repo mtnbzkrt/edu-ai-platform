@@ -116,7 +116,7 @@ class PluginIntegratedOrchestrator {
     for (const need of needs) {
       try {
         // Get JWT token from authContext
-        const authToken = authContext.jwt || authContext.token;
+        const authToken = authContext.jwt;
         const sessionKey = `edu:${authContext.role}:${authContext.user_id}:${sessionId}`;
         
         console.log(`Calling plugin tool: ${need.tool} with session: ${sessionKey}`);

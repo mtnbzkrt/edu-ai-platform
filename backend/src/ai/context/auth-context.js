@@ -11,6 +11,7 @@ function buildAuthContext(user, sessionId) {
     school_id: "school_main",
     actor_id: null,
     session_id: sessionId,
+    jwt: user.jwt,
     permissions: []
   };
 

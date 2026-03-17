@@ -25,7 +25,8 @@ function authMiddleware(req, res, next) {
   const token = (req.headers.authorization || "").replace("Bearer ", "");
   if (!token) return res.status(401).json({ ok: false, error: { code: "UNAUTHORIZED", message: "Token gerekli" } });
   try {
-    req.user = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = { ...decoded, jwt: token };
     next();
   } catch {
     res.status(401).json({ ok: false, error: { code: "UNAUTHORIZED", message: "Geçersiz token" } });
