@@ -66,7 +66,7 @@ class PluginIntegratedOrchestrator {
     return new Promise((resolve, reject) => {
       const body = JSON.stringify({
         tool: toolName,
-        args: params || {},
+        args: { ...(params || {}), authToken: authToken },
         sessionKey: sessionKey,
         authToken: authToken  // Pass auth token to plugin
       });
