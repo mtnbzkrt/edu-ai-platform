@@ -1,136 +1,119 @@
 const http = require("http");
 const jwt = require("jsonwebtoken");
 const UserMemory = require("../memory/user-memory");
+const { executeTool, TOOL_HANDLERS } = require("../tools/tool-registry");
+const { buildAuthContext } = require("../context/auth-context");
 
 const GATEWAY_HOST = process.env.OPENCLAW_GATEWAY_HOST || "10.0.0.1";
 const GATEWAY_PORT = process.env.OPENCLAW_GATEWAY_PORT || 18790;
 const GATEWAY_TOKEN = process.env.OPENCLAW_GATEWAY_TOKEN || "bc433d5343886a5a34602fa85b0c91b6720e9b9f12dc80a0";
 const JWT_SECRET = process.env.JWT_SECRET || "edu-ai-secret-key-2026";
-const EDU_API_URL = process.env.EDU_API_URL || "https://edu.getinstaapp.com";
-const TOOL_SCRIPT = "/home/bozkurt/.openclaw/workspace/edu-ai-platform/tools/edu-tool.js";
+const MAX_TOOL_ROUNDS = 5;
 
 class ChatOrchestrator {
 
-  // Generate a short-lived JWT for the agent to use with tool calls
-  _generateAgentToken(authContext) {
-    return jwt.sign({
-      user_id: authContext.user_id,
-      username: authContext.username,
-      role: authContext.role,
-      full_name: authContext.full_name
-    }, JWT_SECRET, { expiresIn: "10m" });
+  // ── Build OpenAI-compatible tool definitions for a role ──
+  _buildToolDefs(role) {
+    const defs = {
+      student: [
+        { name: "get_self_profile", description: "Öğrencinin kendi profil bilgileri", parameters: { type: "object", properties: {}, required: [] } },
+        { name: "get_self_exam_results", description: "Öğrencinin sınav sonuçları", parameters: { type: "object", properties: { limit: { type: "number", description: "Kaç sonuç (max 50)" }, subject: { type: "string", description: "Ders filtresi (math, science, vb.)" } }, required: [] } },
+        { name: "get_self_assignments", description: "Öğrencinin ödevleri", parameters: { type: "object", properties: { limit: { type: "number" }, status: { type: "string", enum: ["pending", "completed"] } }, required: [] } },
+        { name: "get_self_outcome_breakdown", description: "Kazanım bazlı analiz", parameters: { type: "object", properties: { subject: { type: "string" }, exam_ids: { type: "string", description: "Virgülle ayrılmış exam id'leri" } }, required: [] } }
+      ],
+      teacher: [
+        { name: "list_teacher_classes", description: "Öğretmenin sınıfları", parameters: { type: "object", properties: {}, required: [] } },
+        { name: "list_class_students", description: "Sınıftaki öğrenci listesi", parameters: { type: "object", properties: { class_id: { type: "number" } }, required: ["class_id"] } },
+        { name: "get_class_exam_results", description: "Sınıf sınav sonuçları", parameters: { type: "object", properties: { class_id: { type: "number" }, subject: { type: "string" } }, required: ["class_id"] } },
+        { name: "get_class_outcome_breakdown", description: "Sınıf kazanım analizi", parameters: { type: "object", properties: { class_id: { type: "number" }, subject: { type: "string" } }, required: ["class_id"] } },
+        { name: "get_student_exam_results", description: "Tek öğrenci sınav sonuçları", parameters: { type: "object", properties: { student_id: { type: "string" }, limit: { type: "number" } }, required: ["student_id"] } }
+      ],
+      parent: [
+        { name: "list_my_children", description: "Velinin çocukları", parameters: { type: "object", properties: {}, required: [] } },
+        { name: "get_child_exam_results", description: "Çocuğun sınav sonuçları", parameters: { type: "object", properties: { child_id: { type: "string" }, limit: { type: "number" } }, required: ["child_id"] } },
+        { name: "get_child_assignments", description: "Çocuğun ödevleri", parameters: { type: "object", properties: { child_id: { type: "string" }, limit: { type: "number" } }, required: ["child_id"] } },
+        { name: "get_child_attendance", description: "Çocuğun devamsızlığı", parameters: { type: "object", properties: { child_id: { type: "string" } }, required: ["child_id"] } }
+      ]
+    };
+    return (defs[role] || []).map(d => ({ type: "function", function: d }));
   }
 
-  // Build minimal system prompt — agent decides what tools to call
+  // ── Build system prompt (simpler, no exec instructions) ──
   _buildSystemPrompt(authContext) {
-    const agentToken = this._generateAgentToken(authContext);
     const memoryContext = UserMemory.buildContext(authContext.user_id);
 
-    const toolDocs = this._getToolDocs(authContext.role);
-
-    let sys = `Sen bir eğitim AI asistanısın.
+    return `Sen bir eğitim AI asistanısın.
 Kullanıcı: ${authContext.full_name || "Bilinmiyor"} (rol: ${authContext.role})
 
 ## Dil ve Üslup
 Türkçe konuş. Pedagojik dil kullan, cesaretlendirici ol.
 Ham veriyi gösterme, yorumlayarak açıkla.
 
-## Veri Erişimi — Tool Kullanımı
-Öğrencinin sınavları, ödevleri, performansı gibi verilere erişmek için tool çağırmalısın.
+## Veri Erişimi
+Öğrencinin sınavları, ödevleri, performansı gibi verilere erişmek için sana sunulan tool'ları çağır.
 Verileri TAHMIN ETME veya UYDURMA — her zaman tool ile gerçek veriyi çek.
 
 ## ÖNEMLİ: Belirsiz Sorularda DARALT
 Kullanıcı genel/belirsiz bir soru sorduğunda TÜM VERİYİ ÇEKME. Önce hangi sınıf/ders/öğrenci/çocuk olduğunu sor.
 Örnekler:
-- "Sınıfımın durumu?" → "Hangi sınıfınızı inceleyeyim?" (önce list_teacher_classes ile sınıfları göster)
-- "Durumum nasıl?" → "Hangi dersten bakayım? Yoksa genel bir özet mi istersin?"
-- Tek seçenek varsa (1 sınıf, 1 çocuk) direkt devam et, sormana gerek yok.
-- Basit sohbet veya konu anlatımı için daraltma gerekmez.
+- "Sınıfımın durumu?" → Önce list_teacher_classes ile sınıfları göster, hangisi olduğunu sor.
+- Tek seçenek varsa direkt devam et.
+- Basit sohbet veya konu anlatımı için tool çağırma.
 
-Tool çağırmak için exec aracını kullanarak şu komutu çalıştır:
-
-node ${TOOL_SCRIPT} <tool_adı> [--parametre değer ...] --token ${agentToken}
-
-### Kullanabileceğin Tool'lar:
-${toolDocs}
-
-### Kurallar:
-1. Kullanıcı veri gerektiren bir şey soruyorsa (sınav, ödev, performans, plan), ÖNCE ilgili tool'u çağır.
-2. Basit sohbet veya konu anlatımı için tool çağırmana gerek yok.
-3. Tool sonucunu ham JSON olarak gösterme — yorumla, özetle, anlaşılır hale getir.
-4. Bir seferde sadece ihtiyacın olan tool'ları çağır, hepsini birden çağırma.
-5. Tool hata dönerse, kullanıcıya nazikçe açıkla.
+## Kurallar
+1. Veri gerektiren şey soruluyorsa tool çağır.
+2. Basit sohbet veya konu anlatımı için tool çağırma.
+3. Tool sonucunu ham JSON olarak gösterme — yorumla, özetle.
+4. Bir seferde sadece ihtiyacın olan tool'ları çağır.
+5. Tool hata dönerse kullanıcıya nazikçe açıkla.
 
 ## Hafıza Sistemi
 Kullanıcı hakkında önemli bilgiler öğrendiğinde yanıtının SONUNA etiket ekle:
 [HAFIZA_KAYDET:kategori:anahtar:değer]
 Kategoriler: preferences, learning_style, strengths, weaknesses, goals, notes, personality
 ${memoryContext}`;
-
-    return sys;
   }
 
-  _getToolDocs(role) {
-    if (role === "student") {
-      return `
-- get_self_profile — Kendi profil bilgin
-- get_self_exam_results [--limit N] [--subject S] — Sınav sonuçları
-- get_self_assignments [--limit N] [--status pending|completed] — Ödevler
-- get_self_outcome_breakdown [--exam_ids 1,2,3] [--subject S] — Kazanım bazlı analiz
+  // ── Execute tool calls locally ──
+  _executeToolCalls(toolCalls, authContext) {
+    return toolCalls.map(tc => {
+      const fnName = tc.function?.name || tc.name;
+      let args = {};
+      try {
+        args = typeof tc.function?.arguments === "string" 
+          ? JSON.parse(tc.function.arguments) 
+          : (tc.function?.arguments || tc.input || {});
+      } catch { args = {}; }
 
-Örnek:
-  node ${TOOL_SCRIPT} get_self_exam_results --limit 3 --token <TOKEN>
-  node ${TOOL_SCRIPT} get_self_outcome_breakdown --exam_ids 1,2 --token <TOKEN>`;
-    }
-    if (role === "teacher") {
-      return `
-- list_teacher_classes — Sınıflarını listele
-- list_class_students --class_id N — Sınıftaki öğrenciler
-- get_class_exam_results --class_id N [--subject S] — Sınıf sınav sonuçları
-- get_class_outcome_breakdown --class_id N [--subject S] — Sınıf kazanım analizi
-- get_student_exam_results --student_id N [--limit N] — Tek öğrenci sınavları
-
-Örnek:
-  node ${TOOL_SCRIPT} list_teacher_classes --token <TOKEN>
-  node ${TOOL_SCRIPT} get_class_exam_results --class_id 1 --token <TOKEN>`;
-    }
-    if (role === "parent") {
-      return `
-- list_my_children — Çocuklarını listele
-- get_child_exam_results --child_id N [--limit N] — Çocuğun sınav sonuçları
-- get_child_assignments --child_id N [--limit N] — Çocuğun ödevleri
-- get_child_attendance --child_id N — Çocuğun devamsızlığı
-
-Örnek:
-  node ${TOOL_SCRIPT} list_my_children --token <TOKEN>
-  node ${TOOL_SCRIPT} get_child_exam_results --child_id 3 --limit 5 --token <TOKEN>`;
-    }
-    return "Tool bulunmuyor.";
-  }
-
-  // Streaming — agent runs tools autonomously via Gateway
-  async processMessageStream(message, authContext, sessionContext, previousMessages, res) {
-    const agentKey = sessionContext.agent_key || this._getAgentKey(authContext.role);
-    const sessionKey = `edu:${authContext.role}:${authContext.user_id}:${agentKey}`;
-
-    // Build messages — minimal, agent-driven
-    const messages = [];
-    messages.push({ role: "system", content: this._buildSystemPrompt(authContext) });
-    
-    // Add previous conversation context
-    if (previousMessages?.length > 0) {
-      for (const msg of previousMessages.slice(-10)) {
-        messages.push({ role: msg.role, content: msg.content });
+      // Parse exam_ids string to array
+      if (args.exam_ids && typeof args.exam_ids === "string") {
+        args.exam_ids = args.exam_ids.split(",").map(v => v.trim());
       }
-    }
-    messages.push({ role: "user", content: message });
 
-    // Send prompt to frontend for display
-    res.write(`data: ${JSON.stringify({ type: "tools", tools: [] })}\n\n`);
+      let result;
+      try {
+        result = executeTool(fnName, args, authContext);
+      } catch (err) {
+        result = { error: err.message || "Tool hatası" };
+      }
 
+      return {
+        tool_call_id: tc.id || `call_${fnName}`,
+        role: "tool",
+        content: JSON.stringify(result)
+      };
+    });
+  }
+
+  // ── Call Gateway (non-streaming) with tool loop ──
+  _callGateway(messages, tools) {
     return new Promise((resolve, reject) => {
-      const body = JSON.stringify({ model: "openclaw", messages, user: sessionKey, stream: true });
-      let fullText = "";
+      const body = JSON.stringify({
+        model: "anthropic/claude-sonnet-4-20250514",
+        messages,
+        tools: tools.length > 0 ? tools : undefined,
+        max_tokens: 4096
+      });
 
       const req = http.request({
         hostname: GATEWAY_HOST, port: GATEWAY_PORT,
@@ -138,28 +121,60 @@ ${memoryContext}`;
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer " + GATEWAY_TOKEN,
-          "x-openclaw-agent-id": agentKey,
-          "x-openclaw-session-key": sessionKey,
           "Content-Length": Buffer.byteLength(body)
         },
-        timeout: 180000 // longer timeout — agent may call tools
+        timeout: 60000
+      }, res => {
+        let data = "";
+        res.on("data", c => data += c);
+        res.on("end", () => {
+          try {
+            const parsed = JSON.parse(data);
+            resolve(parsed);
+          } catch (e) {
+            reject(new Error("Gateway yanıt parse hatası: " + data.slice(0, 200)));
+          }
+        });
+      });
+
+      req.on("error", reject);
+      req.on("timeout", () => { req.destroy(); reject(new Error("Gateway timeout (60s)")); });
+      req.write(body);
+      req.end();
+    });
+  }
+
+  // ── Call Gateway (streaming) — only for final text response ──
+  _callGatewayStream(messages, res) {
+    return new Promise((resolve, reject) => {
+      const body = JSON.stringify({
+        model: "anthropic/claude-sonnet-4-20250514",
+        messages,
+        stream: true,
+        max_tokens: 4096
+      });
+
+      let fullText = "";
+      const req = http.request({
+        hostname: GATEWAY_HOST, port: GATEWAY_PORT,
+        path: "/v1/chat/completions", method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + GATEWAY_TOKEN,
+          "Content-Length": Buffer.byteLength(body)
+        },
+        timeout: 90000
       }, proxyRes => {
         let buffer = "";
-
         proxyRes.on("data", chunk => {
           buffer += chunk.toString();
           const lines = buffer.split("\n");
           buffer = lines.pop();
-
           for (const line of lines) {
             if (!line.startsWith("data: ")) continue;
             const data = line.slice(6).trim();
             if (data === "[DONE]") {
-              const { cleanResponse, saved } = UserMemory.parseAndSave(authContext.user_id, fullText);
-              if (saved.length) console.log(`Memory saved for user ${authContext.user_id}:`, saved.map(s => `${s.category}:${s.key}`).join(", "));
-              res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
-              res.end();
-              resolve({ reply: cleanResponse, usedTools: ["agent-autonomous"] });
+              resolve(fullText);
               return;
             }
             try {
@@ -174,49 +189,23 @@ ${memoryContext}`;
             } catch {}
           }
         });
-
-        proxyRes.on("end", () => {
-          if (!fullText) {
-            const fb = `Merhaba! 👋 Size nasıl yardımcı olabilirim?`;
-            res.write(`data: ${JSON.stringify({ type: "chunk", text: fb })}\n\n`);
-            res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
-            res.end();
-            resolve({ reply: fb, usedTools: [] });
-          }
-        });
-
-        proxyRes.on("error", err => {
-          console.error("Stream error:", err.message);
-          const fb = `Bağlantı sorunu yaşandı, lütfen tekrar deneyin.`;
-          res.write(`data: ${JSON.stringify({ type: "chunk", text: fb })}\n\n`);
-          res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
-          res.end();
-          resolve({ reply: fb, usedTools: [] });
-        });
+        proxyRes.on("end", () => resolve(fullText));
+        proxyRes.on("error", reject);
       });
 
-      req.on("error", err => {
-        console.error("Request error:", err.message);
-        const fb = `Bağlantı sorunu yaşandı, lütfen tekrar deneyin.`;
-        res.write(`data: ${JSON.stringify({ type: "chunk", text: fb })}\n\n`);
-        res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
-        res.end();
-        resolve({ reply: fb, usedTools: [] });
-      });
-
-      req.on("timeout", () => { req.destroy(); });
+      req.on("error", reject);
+      req.on("timeout", () => { req.destroy(); reject(new Error("Stream timeout")); });
       req.write(body);
       req.end();
     });
   }
 
-  // Non-streaming fallback
-  async processMessage(message, authContext, sessionContext, previousMessages) {
-    const agentKey = sessionContext.agent_key || this._getAgentKey(authContext.role);
-    const sessionKey = `edu:${authContext.role}:${authContext.user_id}:${agentKey}`;
-    
+  // ── Main: Streaming chat with tool loop ──
+  async processMessageStream(message, authContext, sessionContext, previousMessages, res) {
+    const tools = this._buildToolDefs(authContext.role);
     const messages = [];
     messages.push({ role: "system", content: this._buildSystemPrompt(authContext) });
+
     if (previousMessages?.length > 0) {
       for (const msg of previousMessages.slice(-10)) {
         messages.push({ role: msg.role, content: msg.content });
@@ -224,40 +213,119 @@ ${memoryContext}`;
     }
     messages.push({ role: "user", content: message });
 
-    let reply;
+    // Signal stream start
+    res.write(`data: ${JSON.stringify({ type: "tools", tools: [] })}\n\n`);
+
     try {
-      reply = await this._callAgentHTTP(agentKey, sessionKey, messages);
+      // Tool calling loop (non-streaming, fast)
+      let round = 0;
+      let usedTools = [];
+      
+      while (round < MAX_TOOL_ROUNDS) {
+        const result = await this._callGateway(messages, tools);
+        const choice = result.choices?.[0];
+
+        if (!choice) break;
+
+        // Check for tool calls
+        const toolCalls = choice.message?.tool_calls;
+        if (toolCalls && toolCalls.length > 0 && choice.finish_reason !== "stop") {
+          round++;
+          usedTools.push(...toolCalls.map(tc => tc.function?.name));
+          
+          // Notify frontend about tool usage
+          res.write(`data: ${JSON.stringify({ type: "tools", tools: usedTools })}\n\n`);
+
+          // Add assistant message with tool calls
+          messages.push(choice.message);
+
+          // Execute tools locally and add results
+          const toolResults = this._executeToolCalls(toolCalls, authContext);
+          messages.push(...toolResults);
+
+          continue; // Next round
+        }
+
+        // No tool calls — we have the final text, but it's not streamed
+        // Send it as chunks for consistent UX
+        const text = choice.message?.content || "";
+        if (text) {
+          const { cleanResponse, saved } = UserMemory.parseAndSave(authContext.user_id, text);
+          if (saved.length) console.log(`Memory saved for ${authContext.user_id}:`, saved.map(s => `${s.category}:${s.key}`).join(", "));
+
+          // Send as one chunk (already complete)
+          if (cleanResponse) {
+            res.write(`data: ${JSON.stringify({ type: "chunk", text: cleanResponse })}\n\n`);
+          }
+          res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
+          res.end();
+          return { reply: cleanResponse, usedTools };
+        }
+
+        break;
+      }
+
+      // If we exhausted rounds, do a final streaming call WITHOUT tools
+      if (round >= MAX_TOOL_ROUNDS) {
+        console.log(`Max tool rounds (${MAX_TOOL_ROUNDS}) reached, final streaming call`);
+      }
+
+      // Final streaming response (after all tools executed, or no tools needed)
+      const finalText = await this._callGatewayStream(messages, res);
+      const { cleanResponse, saved } = UserMemory.parseAndSave(authContext.user_id, finalText);
+      if (saved.length) console.log(`Memory saved for ${authContext.user_id}:`, saved.map(s => `${s.category}:${s.key}`).join(", "));
+
+      res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
+      res.end();
+      return { reply: cleanResponse, usedTools };
+
     } catch (err) {
-      console.error("Agent error:", err.message);
-      reply = `Merhaba! 👋 Size nasıl yardımcı olabilirim?`;
+      console.error("Orchestrator error:", err.message);
+      const fb = `Bağlantı sorunu yaşandı, lütfen tekrar deneyin. (${err.message})`;
+      res.write(`data: ${JSON.stringify({ type: "chunk", text: fb })}\n\n`);
+      res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
+      res.end();
+      return { reply: fb, usedTools: [] };
+    }
+  }
+
+  // ── Non-streaming fallback ──
+  async processMessage(message, authContext, sessionContext, previousMessages) {
+    const tools = this._buildToolDefs(authContext.role);
+    const messages = [];
+    messages.push({ role: "system", content: this._buildSystemPrompt(authContext) });
+    
+    if (previousMessages?.length > 0) {
+      for (const msg of previousMessages.slice(-10)) {
+        messages.push({ role: msg.role, content: msg.content });
+      }
+    }
+    messages.push({ role: "user", content: message });
+
+    let usedTools = [];
+    let round = 0;
+
+    while (round < MAX_TOOL_ROUNDS) {
+      const result = await this._callGateway(messages, tools);
+      const choice = result.choices?.[0];
+      if (!choice) break;
+
+      const toolCalls = choice.message?.tool_calls;
+      if (toolCalls && toolCalls.length > 0 && choice.finish_reason !== "stop") {
+        round++;
+        usedTools.push(...toolCalls.map(tc => tc.function?.name));
+        messages.push(choice.message);
+        const toolResults = this._executeToolCalls(toolCalls, authContext);
+        messages.push(...toolResults);
+        continue;
+      }
+
+      const text = choice.message?.content || "";
+      const { cleanResponse, saved } = UserMemory.parseAndSave(authContext.user_id, text);
+      return { reply: cleanResponse || "Merhaba! 👋 Size nasıl yardımcı olabilirim?", usedTools };
     }
 
-    const { cleanResponse, saved } = UserMemory.parseAndSave(authContext.user_id, reply);
-    return { reply: cleanResponse, usedTools: ["agent-autonomous"] };
-  }
-
-  _callAgentHTTP(agentKey, sessionKey, messages) {
-    return new Promise((resolve, reject) => {
-      const body = JSON.stringify({ model: "openclaw", messages, user: sessionKey });
-      const req = http.request({
-        hostname: GATEWAY_HOST, port: GATEWAY_PORT,
-        path: "/v1/chat/completions", method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + GATEWAY_TOKEN, "x-openclaw-agent-id": agentKey, "x-openclaw-session-key": sessionKey, "Content-Length": Buffer.byteLength(body) },
-        timeout: 180000
-      }, res => {
-        let data = "";
-        res.on("data", c => data += c);
-        res.on("end", () => { try { const d = JSON.parse(data); resolve(d.choices?.[0]?.message?.content || ""); } catch (e) { reject(e); } });
-      });
-      req.on("error", reject);
-      req.on("timeout", () => { req.destroy(); reject(new Error("Timeout")); });
-      req.write(body);
-      req.end();
-    });
-  }
-
-  _getAgentKey(role) {
-    return { student: "learner-agent", teacher: "teacher-agent", parent: "parent-agent" }[role] || "learner-agent";
+    return { reply: "Merhaba! 👋 Size nasıl yardımcı olabilirim?", usedTools };
   }
 }
 
