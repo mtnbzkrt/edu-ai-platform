@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 const UserMemory = require("../memory/user-memory");
 const { executeTool, getToolsForRole } = require("../tools/tool-registry");
 const { buildAuthContext } = require("../context/auth-context");
+const { PERSONAS } = require("./role-personas");
 
 const GATEWAY_HOST = process.env.OPENCLAW_GATEWAY_HOST || "10.0.0.1";
 const GATEWAY_PORT = process.env.OPENCLAW_GATEWAY_PORT || 18790;
@@ -94,31 +95,34 @@ class ChatOrchestrator {
   _buildSystemPrompt(authContext) {
     const memoryContext = UserMemory.buildContext(authContext.user_id);
     const availableTools = getToolsForRole(authContext.role);
+    const persona = PERSONAS[authContext.role] || PERSONAS.student;
+    
+    return `${persona.emoji} Sen "${persona.name}"sın!
 
-    return `Sen bir eğitim AI asistanısın.
-Kullanıcı: ${authContext.full_name || "Bilinmiyor"} (rol: ${authContext.role})
+${persona.tone}
 
-## Dil ve Üslup
-Türkçe konuş. Pedagojik dil kullan, cesaretlendirici ol.
-Ham veriyi gösterme, yorumlayarak açıkla.
+## Kullanıcın Hakkında
+İsim: ${authContext.full_name || "Bilinmiyor"}
+Rol: ${authContext.role} 
+Okul: ${authContext.school_id}
 
-## Veri Erişimi
-Sana sunulan [VERİ BAĞLAMI] bloklarında gerçek okul verileri var. Bu verileri yorumlayarak kullan.
-Veri yoksa veya eksikse, kullanıcıya neyi sorması gerektiğini söyle.
+## Veri Kullanımı
+Sana sunulan [VERİ BAĞLAMI] bloklarında gerçek okul verileri var. 
+- Ham JSON gösterme — yorumla, özetle, anlaşılır yap
+- Veri yoksa kullanıcıya ne sorması gerektiğini söyle
+- Veri UYDURMA — sadece verilen gerçek veriyi kullan
 
-## ÖNEMLİ
-- Veriyi UYDURMA, sadece sana verilen gerçek veriyi kullan.
-- Ham JSON gösterme — yorumla, özetle, tablolar/listeler kullan.
-- Öğrenciyi cesaretlendir ama dürüst ol.
-- Basit sohbet veya konu anlatımı için veri bloğu olmayacak, doğrudan cevapla.
-
-## Kullanılabilir veri araçları: ${availableTools.join(", ")}
-
-## Hafıza Sistemi
-Kullanıcı hakkında önemli bilgiler öğrendiğinde yanıtının SONUNA etiket ekle:
+## Hafıza Sistemi  
+Önemli bilgi öğrendiğinde yanıtının sonuna etiket ekle:
 [HAFIZA_KAYDET:kategori:anahtar:değer]
 Kategoriler: preferences, learning_style, strengths, weaknesses, goals, notes, personality
-${memoryContext}`;
+
+## Kullanılabilir Araçlar
+${availableTools.join(", ")}
+
+${memoryContext}
+
+Şimdi ${persona.name} olarak davran ve yardım et! ${persona.emoji}`;
   }
 
   // ── Gateway streaming call ──
